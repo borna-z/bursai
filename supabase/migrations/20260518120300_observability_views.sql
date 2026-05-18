@@ -34,6 +34,13 @@ ORDER BY bucket DESC, status;
 --    request_idempotency keys are `${functionName}:${userId}:${rawKey}` so
 --    split_part on ':' yields the function name. status is the cached HTTP
 --    response status; >=400 counts as an error call.
+--
+--    Pending claims have status = 0 (see _shared/idempotency.ts CLAIM_TTL_MS):
+--    in-flight isolates that haven't written a response yet. Excluding status
+--    = 0 keeps the denominator honest — `total_calls` reflects completed
+--    requests, not in-flight ones. Only functions that go through
+--    _shared/idempotency.ts are represented; non-idempotent endpoints
+--    (streaming AI paths, etc.) don't appear here.
 CREATE OR REPLACE VIEW public.view_function_health AS
 SELECT
   split_part(key, ':', 1) AS function_name,
@@ -45,6 +52,7 @@ SELECT
   ) AS error_pct
 FROM public.request_idempotency
 WHERE created_at > NOW() - INTERVAL '24 hours'
+  AND status > 0
 GROUP BY function_name
 ORDER BY error_pct DESC NULLS LAST;
 

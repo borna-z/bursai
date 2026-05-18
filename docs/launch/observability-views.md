@@ -20,6 +20,10 @@ Per-function call counts and error rate over the last 24 h, derived from
 `error_pct` is `error_calls / total_calls` to 2 decimal places. Sorted with
 the worst-performing functions first.
 
+Pending claims (`status = 0`, in-flight isolates that haven't stored a
+response yet) are filtered out so the denominator reflects completed
+requests only.
+
 Caveat: only functions that go through `_shared/idempotency.ts` are
 represented — non-idempotent functions (most of the AI streaming paths) do
 not appear here. Use the Supabase `analytics_events` table for full
