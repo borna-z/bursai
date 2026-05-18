@@ -61,6 +61,13 @@ if (!SUPABASE_URL || !ANON_KEY || !SERVICE_ROLE_KEY) {
 export const options =
   SCENARIO === "load"
     ? {
+        // 50-user pool seed = ~250 sequential HTTP calls in setup (admin
+        // create + sign-in + subscriptions upsert + render_credits upsert
+        // + garments bulk-insert per user). k6's default setupTimeout is
+        // 60s, which is tight at p95 latencies — bump to 5 min so a flaky
+        // preview branch doesn't kill the run during provisioning.
+        setupTimeout: "5m",
+        teardownTimeout: "5m",
         scenarios: {
           ramp_100: {
             executor: "ramping-vus",
