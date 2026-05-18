@@ -56,6 +56,28 @@ SELECT cron.schedule(
   $cron$DELETE FROM public.ai_call_log WHERE created_at < NOW() - INTERVAL '90 days'$cron$
 );
 
+-- ─── Observability view for sprint PR #894's dashboard_metrics ────────
+-- This view lives here (alongside the table) rather than in PR #894's
+-- migration so the two land atomically. Splitting them caused CI's
+-- migration-smoke job to fail on PR #894 against a clean main where this
+-- table didn't exist yet.
+
+CREATE OR REPLACE VIEW public.view_ai_cost_per_day AS
+SELECT
+  date_trunc('day', created_at)::date AS day,
+  function_name,
+  provider,
+  COUNT(*) AS calls,
+  SUM(input_tokens) AS input_tokens,
+  SUM(output_tokens) AS output_tokens,
+  ROUND(SUM(estimated_cost_usd)::numeric, 4) AS cost_usd
+FROM public.ai_call_log
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY day, function_name, provider
+ORDER BY day DESC, cost_usd DESC;
+
+GRANT SELECT ON public.view_ai_cost_per_day TO service_role;
+
 -- POST-MERGE TODO for sprint PR 2 (alert_check):
 --   Rule 7 — AI cost runaway:
 --     daily : SUM(estimated_cost_usd) WHERE created_at > NOW() - INTERVAL '24h' > 200
