@@ -185,6 +185,12 @@ type GenerateRequestBody = {
   mode: string;
   generator_mode: string;
   occasion: string;
+  // Free-form formality label (e.g. "Smart Casual", "Loungewear"). When
+  // present, the edge function forwards it to burs_style_engine which
+  // uses it as the `occasion_submode` for the AI prompt — overriding the
+  // server's profile-derived submode so the user's chip actually steers
+  // the outfit. Optional; null/absent falls back to the computed submode.
+  formality?: string;
   style: string | null;
   weather: { temperature: number; precipitation: string; wind: string };
   locale: string;
@@ -372,6 +378,7 @@ export function useGenerateOutfit() {
               generator_mode: 'standard',
               occasion: params.occasion ?? 'Everyday',
               style: params.mood ?? null,
+              ...(params.formality ? { formality: params.formality } : {}),
               weather: effectiveWeather,
               locale: 'en',
               prefer_garment_ids: preferList,

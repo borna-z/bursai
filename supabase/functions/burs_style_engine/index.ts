@@ -813,8 +813,15 @@ serve(async (req) => {
     // Layering validation on best combo
     const bestLayering = validateLayeringCompleteness(bestCombo.items);
 
-    // Occasion sub-mode resolution
-    const occasionSubmode = resolveOccasionSubmode(occasion, preferences, styleVector);
+    // Occasion sub-mode resolution. The profile-derived submode is the
+    // default, but a client-supplied `body.formality` (StyleMe 6-level
+    // chip) overrides it — the user's explicit pick should beat the
+    // inferred one, otherwise the chip is decorative. Trimmed; empty or
+    // non-string values fall back to the computed value.
+    const clientFormality = typeof body.formality === "string" ? body.formality.trim() : "";
+    const occasionSubmode = clientFormality.length > 0
+      ? clientFormality
+      : resolveOccasionSubmode(occasion, preferences, styleVector);
 
     // Gap-aware confidence
     const confidence = computeConfidence(bestCombo, candidateCount, slotCandidates, weather, occasion, gaps, bestLayering.needs_base_layer);
