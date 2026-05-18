@@ -2,6 +2,18 @@
 // 14 supported languages, default English. Country-flag emojis are intentionally
 // allowed here only (per the user's spec) — they're geographic identifiers, not
 // decorative emojis. Every other screen in the app stays emoji-free.
+//
+// Flag-emoji choices follow the language-of-origin convention iOS Settings
+// uses. Two cases deserve a note:
+//   - `ar` → 🇸🇦 — Arabic is spoken across 20+ countries; Saudi is the
+//     de-facto reference flag in most app pickers. No politically neutral
+//     alternative exists in the emoji set.
+//   - `pt` → 🇵🇹 — Expo's `Localization.getLocales()` returns `pt` for BOTH
+//     pt-PT and pt-BR users, so the single Portuguese dictionary serves
+//     both. The flag aligns with the EU launch markets named in
+//     CLAUDE.md (Sweden first, then Nordics / UK / NL). Brazilian
+//     translation quality may suffer in idioms; revisit when LatAm
+//     becomes a target market.
 
 import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -35,7 +47,7 @@ const LANGUAGES: readonly LanguageEntry[] = [
   { code: 'nl', name: 'Nederlands',  flag: '🇳🇱' },
   { code: 'no', name: 'Norsk',       flag: '🇳🇴' },
   { code: 'pl', name: 'Polski',      flag: '🇵🇱' },
-  { code: 'pt', name: 'Português',   flag: '🇧🇷' },
+  { code: 'pt', name: 'Português',   flag: '🇵🇹' },
 ];
 
 export function LanguageStep({
