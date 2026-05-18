@@ -1,5 +1,5 @@
 // LanguageStep — onboarding step 1.
-// 10 supported languages, default English. Country-flag emojis are intentionally
+// 14 supported languages, default English. Country-flag emojis are intentionally
 // allowed here only (per the user's spec) — they're geographic identifiers, not
 // decorative emojis. Every other screen in the app stays emoji-free.
 
@@ -15,21 +15,27 @@ import { CheckIcon } from '../../components/icons';
 import { getLocale, setLocale, t as tr } from '../../lib/i18n';
 import { hapticLight, hapticSelection } from '../../lib/haptics';
 
-export type LanguageCode = 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
+export type LanguageCode =
+  | 'en' | 'sv' | 'ar' | 'da' | 'de' | 'es' | 'fa' | 'fi'
+  | 'fr' | 'it' | 'nl' | 'no' | 'pl' | 'pt';
 
 type LanguageEntry = { code: LanguageCode; name: string; flag: string };
 
 const LANGUAGES: readonly LanguageEntry[] = [
-  { code: 'en', name: 'English',    flag: '🇬🇧' },
-  { code: 'sv', name: 'Svenska',    flag: '🇸🇪' },
-  { code: 'fr', name: 'Français',   flag: '🇫🇷' },
-  { code: 'de', name: 'Deutsch',    flag: '🇩🇪' },
-  { code: 'es', name: 'Español',    flag: '🇪🇸' },
-  { code: 'it', name: 'Italiano',   flag: '🇮🇹' },
-  { code: 'ar', name: 'العربية',    flag: '🇸🇦' },
-  { code: 'fa', name: 'فارسی',      flag: '🇮🇷' },
-  { code: 'pl', name: 'Polski',     flag: '🇵🇱' },
-  { code: 'pt', name: 'Português',  flag: '🇧🇷' },
+  { code: 'en', name: 'English',     flag: '🇬🇧' },
+  { code: 'sv', name: 'Svenska',     flag: '🇸🇪' },
+  { code: 'ar', name: 'العربية',     flag: '🇸🇦' },
+  { code: 'da', name: 'Dansk',       flag: '🇩🇰' },
+  { code: 'de', name: 'Deutsch',     flag: '🇩🇪' },
+  { code: 'es', name: 'Español',     flag: '🇪🇸' },
+  { code: 'fa', name: 'فارسی',       flag: '🇮🇷' },
+  { code: 'fi', name: 'Suomi',       flag: '🇫🇮' },
+  { code: 'fr', name: 'Français',    flag: '🇫🇷' },
+  { code: 'it', name: 'Italiano',    flag: '🇮🇹' },
+  { code: 'nl', name: 'Nederlands',  flag: '🇳🇱' },
+  { code: 'no', name: 'Norsk',       flag: '🇳🇴' },
+  { code: 'pl', name: 'Polski',      flag: '🇵🇱' },
+  { code: 'pt', name: 'Português',   flag: '🇧🇷' },
 ];
 
 export function LanguageStep({
@@ -43,7 +49,7 @@ export function LanguageStep({
   // Default to the detected system locale (set at import in lib/i18n.ts) so a
   // Swedish-system user sees Svenska pre-selected, not English. Caller-supplied
   // `initial` still wins (used for re-entry from a persisted draft). System
-  // locales outside the 10-language whitelist (e.g. `'ja'`) fall back to
+  // locales outside the 14-language whitelist (e.g. `'ja'`) fall back to
   // English so Continue never emits an unsupported code.
   const [selected, setSelected] = React.useState<LanguageCode>(() => {
     if (initial) return initial;
