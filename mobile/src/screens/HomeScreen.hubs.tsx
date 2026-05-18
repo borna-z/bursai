@@ -48,8 +48,20 @@ export function DiscoverHubsSection({ goRoute }: { goRoute: GoRoute }) {
   );
 }
 
-export function AskStylistRow({ onPress }: { onPress: () => void }) {
+export function AskStylistRow({
+  promptKey,
+  onPress,
+}: {
+  /** i18n key for the prompt copy shown on the row AND seeded into the
+   *  chat composer when tapped. Caller picks a fresh key per mount via
+   *  `useStylistPromptKey()` so users see a different starter every
+   *  time they land on Home. Falls back to the static example when
+   *  omitted (legacy callers / tests). */
+  promptKey?: string;
+  onPress: () => void;
+}) {
   const t = useTokens();
+  const promptText = tr(promptKey ?? 'home.askStylist.exampleSeed');
   return (
     <View>
       <View style={s.sectionHead}>
@@ -59,14 +71,14 @@ export function AskStylistRow({ onPress }: { onPress: () => void }) {
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${tr('home.askStylist.exampleSeed')}. ${tr('home.askStylist.tapHint')}`}
+        accessibilityLabel={`${promptText}. ${tr('home.askStylist.tapHint')}`}
         style={[s.stylistRow, { borderColor: t.border, backgroundColor: t.card }]}>
         <View style={[s.stylistIcon, { backgroundColor: t.accentSoft }]}>
           <SparklesIcon color={t.accent} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 13.5, fontWeight: '600', color: t.fg, fontFamily: fonts.uiSemi, letterSpacing: -0.13 }}>
-            {tr('home.askStylist.exampleSeed')}
+            {promptText}
           </Text>
           <Text style={{ fontSize: 11.5, color: t.fg2, marginTop: 1, fontFamily: fonts.ui }}>
             {tr('home.askStylist.tapHint')}

@@ -1376,6 +1376,16 @@ export const en: Record<string, string> = {
   // pulling it through i18n lets us localize the example for non-English users.
   'home.askStylist.exampleSeed': 'What goes with my linen trousers?',
   'home.askStylist.tapHint': 'Tap to chat — context-aware',
+  // Rotating prompt pool. `useStylistPromptKey()` picks one of these per
+  // HomeScreen mount; tapping the row navigates with the chosen text as
+  // `initialDraft` so the composer is pre-filled. Append-only — add new
+  // keys at the end and bump the pool size in `lib/stylistPrompts.ts`.
+  'home.askStylist.prompts.0': 'What should I wear today?',
+  'home.askStylist.prompts.1': 'Style me for a wedding',
+  'home.askStylist.prompts.2': 'What goes with my black jeans?',
+  'home.askStylist.prompts.3': 'Show me a cozy weekend look',
+  'home.askStylist.prompts.4': 'Build an outfit for a coffee date',
+  'home.askStylist.prompts.5': 'I have a meeting later — what should I wear?',
 
   // ─── Home ───────────────────────────────────────────────────────────────
   'home.todaysLook.eyebrow': "Today's Look",

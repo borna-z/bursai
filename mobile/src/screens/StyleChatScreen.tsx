@@ -171,6 +171,17 @@ export function StyleChatScreen() {
       );
       if (first) setAnchoredGarmentId(first);
     }
+    // Pre-fill the composer if the navigator handed us a starter prompt
+    // (Home → "Ask the stylist" rotation row). Skips when gapContext
+    // already seeded the draft above so the gap intent wins, and
+    // tolerates empty/blank values silently.
+    if (
+      !params.gapContext
+      && typeof params.initialDraft === 'string'
+      && params.initialDraft.trim()
+    ) {
+      setDraft(params.initialDraft);
+    }
   }, [route.params, setMode, setAnchoredGarmentId]);
 
   // G1 — chat history thread summaries.
