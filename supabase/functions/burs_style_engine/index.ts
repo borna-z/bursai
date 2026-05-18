@@ -9,6 +9,7 @@ import { corsHeadersFor } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { normalizeSignalText } from "../_shared/style-signals.ts";
 import { logger } from "../_shared/logger.ts";
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 // Wave 8.5 PR B (P88) — canonical signal normalization + style summary loader.
 import { normalizeStyleMemorySignal } from "../_shared/style-memory-signals.ts";
 import { loadOrBuildSummary, loadStandardSummaryInputs, type UserStyleSummaryRow } from "../_shared/summary-loader.ts";
@@ -159,7 +160,14 @@ serve(async (req) => {
       });
     }
     const userId = user.id;
-    const requestId = createRequestId();
+    // Honor inbound `x-request-id` from mobile so the full
+    // generate-flow trace correlates with the caller's log line.
+    // Falls back to a fresh uuid for cron / internal hops.
+    const requestId = getOrCreateRequestId(req) || createRequestId();
+    // Shadow the module-level logger with one bound to this request — every
+    // `log.info(...)` / `log.warn(...)` / `log.exception(...)` below carries
+    // the same `request_id` for end-to-end correlation.
+    const log = logger("burs_style_engine", requestId);
     const requestStartedAt = Date.now();
 
     const body = await req.json();
@@ -481,7 +489,7 @@ serve(async (req) => {
         }
       }
     } catch (err) {
-      console.error('[burs_style_engine] summary load failed', err);
+      log.exception('summary load failed', err);
     }
 
     if (hardSkipGarmentIds.size > 0) {
@@ -489,14 +497,11 @@ serve(async (req) => {
       garments = garments.filter((g) => !hardSkipGarmentIds.has(g.id));
       const droppedCount = beforeCount - garments.length;
       if (droppedCount > 0) {
-        console.log(
-          '[burs_style_engine] hard_skip_applied',
-          JSON.stringify({
-            user_id: userId,
-            dropped: droppedCount,
-            remaining: garments.length,
-          }),
-        );
+        log.info('hard_skip_applied', {
+          user_id: userId,
+          dropped: droppedCount,
+          remaining: garments.length,
+        });
       }
     }
 
@@ -720,7 +725,9 @@ serve(async (req) => {
         }
       }
     } catch (e) {
-      console.warn("Failed to load recency map; continuing without variety penalty", e);
+      log.warn("Failed to load recency map; continuing without variety penalty", {
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
 
     // Score all garments per slot
@@ -852,7 +859,7 @@ serve(async (req) => {
         });
       }
       // Fallback: use best scoring combo without AI explanation
-      console.warn("AI refinement failed, using deterministic fallback");
+      log.warn("AI refinement failed, using deterministic fallback");
       const best = activeCombos[0];
       if (aiMode === "suggest") {
         const suggestions = activeCombos.slice(0, 3).map((c, i) => {
@@ -882,7 +889,9 @@ serve(async (req) => {
           .from("style_engine_suggestion_log")
           .insert({ user_id: userId, outfit_hash: bestHash, occasion });
       } catch (logErr) {
-        console.warn("Failed to log fallback style engine suggestion", logErr);
+        log.warn("Failed to log fallback style engine suggestion", {
+          error: logErr instanceof Error ? logErr.message : String(logErr),
+        });
       }
       return new Response(JSON.stringify({
         // Title enrichment — see AI-refinement path comment below.
@@ -930,7 +939,7 @@ serve(async (req) => {
           if (altIdx >= 0) {
             chosenIdx = altIdx;
             chosen = activeCombos[altIdx];
-            console.warn("Refinement guard: chosen outfit was identical to active look, swapped to alt combo", altIdx);
+            log.warn("Refinement guard: chosen outfit was identical to active look, swapped to alt combo", { altIdx });
           }
         }
       }
@@ -973,7 +982,9 @@ serve(async (req) => {
             occasion,
           });
       } catch (logErr) {
-        console.warn("Failed to log style engine suggestion", logErr);
+        log.warn("Failed to log style engine suggestion", {
+          error: logErr instanceof Error ? logErr.message : String(logErr),
+        });
       }
 
       log.info("request.complete", {

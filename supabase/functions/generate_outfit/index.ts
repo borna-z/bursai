@@ -4,11 +4,16 @@ import { CORS_HEADERS } from "../_shared/cors.ts";
 import { invokeUnifiedStylistEngine } from "../_shared/unified_stylist_engine.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { classifySlot } from "../_shared/burs-slots.ts";
+import { logger } from "../_shared/logger.ts";
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  const requestId = getOrCreateRequestId(req);
+  const log = logger("generate_outfit", requestId);
 
   if (checkOverload("generate_outfit")) {
     return overloadResponse(CORS_HEADERS);
@@ -143,7 +148,7 @@ serve(async (req) => {
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
-    console.error("generate_outfit unified shim error:", e);
+    log.exception("generate_outfit unified shim error", e);
     const message = e instanceof Error ? e.message : "Unexpected error";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

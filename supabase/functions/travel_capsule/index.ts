@@ -35,11 +35,18 @@ import {
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
+import { logger } from "../_shared/logger.ts";
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  // Bind a request-scoped logger early so even malformed-input / overload
+  // early returns emit logs against the inbound `x-request-id`.
+  const requestId = getOrCreateRequestId(req);
+  const log = logger("travel_capsule", requestId);
 
   if (checkOverload("travel_capsule")) {
     return overloadResponse(CORS_HEADERS);
@@ -188,7 +195,11 @@ serve(async (req) => {
     const allGarmentById = new Map(allGarments.map((garment) => [garment.id, garment]));
     const scoreById = new Map(scoredGarments.map((entry) => [entry.garment.id, entry.packScore]));
 
-    console.log(`travel_capsule pack-worthiness: ${allGarments.length} total → ${garments.length} sent to AI (top scores: ${scoredGarments.slice(0, 3).map(s => s.packScore.toFixed(1)).join(', ')})`);
+    log.info("pack_worthiness", {
+      total: allGarments.length,
+      sent_to_ai: garments.length,
+      top_scores: scoredGarments.slice(0, 3).map((s) => Number(s.packScore.toFixed(1))),
+    });
 
     const wardrobeLines = formatWardrobeLines(garments);
 
@@ -372,7 +383,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       };
     };
 
-    console.log("travel_capsule v5 start", {
+    log.info("travel_capsule v5 start", {
       duration_days,
       trip_nights: planningSummary.tripNights,
       outfitsPerDay,
@@ -407,10 +418,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
         };
 
-        console.log("travel_capsule calling AI");
+        log.info("calling AI");
         const { data: content, model_used } = await callBursAI(callOpts, supabase);
 
-        console.log(`travel_capsule model=${model_used} type=${typeof content} truthy=${!!content}`);
+        log.info("AI returned", { model_used, content_type: typeof content, truthy: !!content });
 
         let parsed: any = null;
         if (content && typeof content === "object") {
@@ -424,20 +435,25 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           result = parsed;
         } else {
           lastError = new Error("AI returned invalid structure");
-          console.warn("AI response invalid, keys:", parsed ? Object.keys(parsed) : "null");
+          log.warn("AI response invalid", { keys: parsed ? Object.keys(parsed) : null });
         }
     } catch (e) {
         lastError = e instanceof Error ? e : new Error(String(e));
-        console.warn("travel_capsule AI call failed:", lastError.message);
+        log.warn("AI call failed", { error: lastError.message });
     }
 
     if (!result) {
-      console.warn("AI capsule generation failed, using deterministic fallback", lastError?.message || "unknown");
+      log.warn("AI capsule generation failed, using deterministic fallback", {
+        error: lastError?.message || "unknown",
+      });
       result = buildDeterministicFallback();
     }
 
-    console.log("AI capsule_items count:", result.capsule_items?.length, "sample:", JSON.stringify(result.capsule_items?.slice(0, 3)));
-    console.log("AI outfits count:", result.outfits?.length);
+    log.info("AI result summary", {
+      capsule_items_count: result.capsule_items?.length,
+      sample: result.capsule_items?.slice(0, 3),
+      outfits_count: result.outfits?.length,
+    });
 
     const resolveId = (id: string): string => resolveGarmentId(id, validIds, allGarments, titleIndex);
 
@@ -452,7 +468,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     })).filter((o: any) => o.items.length >= 2);
 
     if (resolvedItems.length === 0 || resolvedOutfits.length === 0) {
-      console.warn("Resolved capsule is empty, applying deterministic fallback mapping");
+      log.warn("Resolved capsule is empty, applying deterministic fallback mapping");
       const fallback = buildDeterministicFallback();
       // `fallback.capsule_items` is now string[] (see buildDeterministicFallback
       // fix above). Filter directly — no object-to-id mapping needed.
@@ -463,7 +479,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       result = { ...fallback, ...result };
     }
 
-    console.log("Resolved items (pre-validation):", resolvedItems.length, "Resolved outfits:", resolvedOutfits.length);
+    log.info("Resolved (pre-validation)", {
+      items: resolvedItems.length,
+      outfits: resolvedOutfits.length,
+    });
 
     // ─────────────────────────────────────────────
     // FIX 1 — RECONCILE: ensure every outfit item is in capsule_items
@@ -483,7 +502,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           if (g) {
             capsule_items.push(g);
             capsuleIds.add(id);
-            console.log("travel_capsule: auto-added to capsule:", id);
+            log.info("auto-added to capsule", { id });
           }
         }
       }
@@ -528,7 +547,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           capsuleIds.add(fromWardrobe.id);
           if (!capsuleBySlot[slot]) capsuleBySlot[slot] = [];
           capsuleBySlot[slot].push(fromWardrobe.id);
-          console.log(`travel_capsule: auto-added ${slot} to capsule for outfit completeness:`, fromWardrobe.id);
+          log.info("auto-added slot to capsule for outfit completeness", {
+            slot,
+            id: fromWardrobe.id,
+          });
         }
         return fromWardrobe.id;
       }
@@ -598,7 +620,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         if (wasPatched) patchCount++;
       } else {
         dropCount++;
-        console.warn(`Dropped incomplete outfit for day ${outfit.day}: slots=${validation.presentSlots.join(',')}`);
+        log.warn("Dropped incomplete outfit", {
+          day: outfit.day,
+          present_slots: validation.presentSlots,
+        });
       }
     }
 
@@ -666,7 +691,14 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         .map((g: any) => [g.id, g]),
     ).values());
 
-    console.log(`IB-2c matrix validation: ${outfits.length} outfits -> ${scheduledOutfits.length} scheduled (${patchCount} patched, ${dropCount} dropped), capsule ${capsule_items.length} -> ${prunedCapsule.length} items`);
+    log.info("IB-2c matrix validation", {
+      outfits_in: outfits.length,
+      scheduled: scheduledOutfits.length,
+      patched: patchCount,
+      dropped: dropCount,
+      capsule_in: capsule_items.length,
+      capsule_out: prunedCapsule.length,
+    });
 
     // ─────────────────────────────────────────────
     // Deterministic fallback BEFORE coverage_gaps + clamp.
@@ -791,7 +823,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
-    console.error("travel_capsule error:", e);
+    log.exception("travel_capsule error", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });
