@@ -27,6 +27,7 @@ import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
+import { Caption } from '../components/Caption';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment } from '../hooks/useGarments';
@@ -459,15 +460,9 @@ export function GarmentDetailScreen() {
               onPress={handleRetryRender}
             />
             {retryRenderInlineError ? (
-              <Text
-                style={{
-                  fontSize: 12,
-                  lineHeight: 16,
-                  color: t.fg2,
-                  paddingHorizontal: 4,
-                }}>
+              <Caption style={{ paddingHorizontal: 4 }}>
                 {retryRenderInlineError}
-              </Text>
+              </Caption>
             ) : null}
           </View>
         ) : null}
