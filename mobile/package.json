@@ -4,7 +4,7 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
+    "android": "node scripts/check-firebase-config.js && expo run:android",
     "ios": "expo run:ios",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 0",
     "typecheck": "tsc --noEmit --skipLibCheck",
@@ -12,7 +12,9 @@
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "check:firebase": "node scripts/check-firebase-config.js",
+    "eas-build-pre-install": "node scripts/check-firebase-config.js"
   },
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",
@@ -71,6 +73,7 @@
     "jest-expo": "~54.0.0",
     "prettier": "^3.3.3",
     "react-test-renderer": "19.1.0",
+    "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
   "expo": {

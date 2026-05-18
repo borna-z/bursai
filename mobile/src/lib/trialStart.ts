@@ -18,6 +18,8 @@
 // dispatcher knows what to do when the user comes back online and a
 // `start-trial` job is sitting in the queue.
 
+import { Platform } from 'react-native';
+
 import {
   callEdgeFunction,
   EdgeFunctionHttpError,
@@ -76,6 +78,14 @@ export async function dispatchStartTrial(_payload: StartTrialPayload): Promise<v
  *  the caller — failures go to Sentry (permanent) / the offline queue
  *  (transient or offline). */
 export async function enqueueStartTrial(userId: string): Promise<void> {
+  // `start_trial` is Stripe-only and was deprecated for mobile when M31
+  // moved iOS/Android billing onto RevenueCat. Calling it on mobile returns
+  // 503, which `isPermanentFailure` classifies as transient and queues
+  // for replay — so every new mobile signup writes a stuck job that
+  // retries forever. Short-circuit native platforms entirely; the
+  // RevenueCat purchase flow is the real trial-start path on mobile.
+  if (Platform.OS === 'ios' || Platform.OS === 'android') return;
+
   const payload: StartTrialPayload = { userId };
 
   if (!(await isOnlineNow())) {

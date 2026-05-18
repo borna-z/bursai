@@ -21,7 +21,10 @@ import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { useAuth } from '../hooks/useAuth';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
 import { useStyleDNA } from '../hooks/useStyleDNA';
+import { useSubscription } from '../hooks/useSubscription';
 import { useWardrobeStats } from '../hooks/useWardrobeStats';
+import { Button } from '../components/Button';
+import { hapticLight } from '../lib/haptics';
 import { t as tr, useTranslation, type Locale } from '../lib/i18n';
 import { showToast } from '../lib/toast';
 import {
@@ -83,6 +86,28 @@ export function SettingsScreen() {
   // hardcoded "Quiet luxe · Earth tones" placeholder. Hides the caption
   // when the DNA hasn't resolved or has no archetype yet.
   const { data: styleDNA } = useStyleDNA();
+  // Subscription card state — three discrete renders (free / trialing /
+  // premium). The mock card pre-M31 hardcoded "Premium · 3-day trial · 2
+  // days remaining" for every user; now we render the real entitlement
+  // state from the `subscriptions` row that RevenueCat's webhook writes.
+  const subscription = useSubscription();
+  const subscriptionPeriodEndLabel = (() => {
+    if (!subscription.currentPeriodEnd) return null;
+    const d = new Date(subscription.currentPeriodEnd);
+    if (Number.isNaN(d.getTime())) return null;
+    // Locale-aware short date (e.g. "May 24" / "24 maj"). `Intl.DateTimeFormat`
+    // on RN reads the active app locale; falling back to en-US keeps the
+    // string non-blank if the runtime ever lacks the intl polyfill.
+    try {
+      return new Intl.DateTimeFormat(locale === 'sv' ? 'sv-SE' : undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(d);
+    } catch {
+      return d.toISOString().slice(0, 10);
+    }
+  })();
   const styleProfileCaption = (() => {
     if (!styleDNA) return undefined;
     const parts = [styleDNA.archetype];
@@ -164,12 +189,89 @@ export function SettingsScreen() {
         </View>
 
         {/* ============ SUBSCRIPTION CARD ============ */}
-        {/* Intentionally not rendered. The mock card hardcoded a "Premium · 3-day
-            trial · 2 days remaining · renews automatically" state regardless of
-            the actual user — actively misleading. The profiles table has no
-            subscription columns yet, so we have nothing honest to show.
-            M31 (RevenueCat) wires real billing; the card returns then with
-            real entitlement state from the RC customer info. */}
+        {/* Real entitlement state from `useSubscription`. Three renders:
+              (1) Trial    — real trial row that hasn't expired.
+              (2) Premium  — paid plan recognised by `deriveState`
+                             (status=active AND plan ∈ premium-set).
+              (3) Free     — everything else (no row, locked, default
+                             status=active/plan=free, expired trial, or
+                             a boost user whose `state` is overridden to
+                             `trialing` but `status` is not).
+            We branch off `subscription.state` for premium (so we honour
+            `deriveState`'s plan whitelist — Codex P2 PR #885 round 4)
+            and require BOTH `state === 'trialing'` AND raw
+            `status === 'trialing'` for trial (so the onboarding-boost
+            state override doesn't mislabel free users — Codex P2 round
+            3). When the query errors we hide the card entirely
+            (Codex P2 round 2). */}
+        {subscription.error ? null : !subscription.isLoading ? (
+          <View style={{ gap: 8 }}>
+            <Eyebrow>{tr('settings.subscription.eyebrow')}</Eyebrow>
+            <Card>
+              {subscription.state === 'trialing' &&
+              subscription.status === 'trialing' ? (
+                <View style={{ gap: 6 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 16,
+                      color: t.fg,
+                      letterSpacing: -0.16,
+                    }}>
+                    {tr('settings.subscription.trial')}
+                  </Text>
+                  {subscriptionPeriodEndLabel ? (
+                    <Caption>
+                      {tr('settings.subscription.trialEnds', { date: subscriptionPeriodEndLabel })}
+                    </Caption>
+                  ) : null}
+                </View>
+              ) : subscription.state === 'premium' ? (
+                <View style={{ gap: 6 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 16,
+                      color: t.fg,
+                      letterSpacing: -0.16,
+                    }}>
+                    {tr('settings.subscription.premium')}
+                    {subscription.plan === 'yearly'
+                      ? ` · ${tr('settings.subscription.yearly')}`
+                      : subscription.plan === 'monthly'
+                        ? ` · ${tr('settings.subscription.monthly')}`
+                        : ''}
+                  </Text>
+                  {subscriptionPeriodEndLabel ? (
+                    <Caption>
+                      {tr('settings.subscription.renews', { date: subscriptionPeriodEndLabel })}
+                    </Caption>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={{ gap: 12 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 16,
+                      color: t.fg,
+                      letterSpacing: -0.16,
+                    }}>
+                    {tr('settings.subscription.free')}
+                  </Text>
+                  <Button
+                    label={tr('settings.subscription.upgrade')}
+                    variant="accent"
+                    onPress={() => {
+                      hapticLight();
+                      nav.navigate('Paywall');
+                    }}
+                  />
+                </View>
+              )}
+            </Card>
+          </View>
+        ) : null}
 
         {/* ============ PROFILE SECTION ============ */}
         <Section title={tr('settings.section.profile')}>

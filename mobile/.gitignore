@@ -42,3 +42,20 @@ yarn-error.*
 
 # Jest coverage (N4)
 coverage/
+
+# Firebase google-services.json
+# A placeholder google-services.json IS committed so dev builds + EAS bundling
+# resolve the app.json `googleServicesFile` reference without erroring. Before
+# the Android production build, replace mobile/google-services.json with the
+# real file from console.firebase.google.com → Project Settings → Android app
+# (package: me.burs.app). The real file may contain project-scoped API keys
+# and should NOT be committed — when swapping in the real file locally, untrack
+# it first (`git rm --cached mobile/google-services.json`) so subsequent commits
+# don't accidentally publish production credentials. The ignore rule below
+# kicks in after the `rm --cached` step: an untracked real config can no
+# longer be accidentally `git add`-ed (Codex P2 PR #885 round 5). The
+# placeholder stays tracked because gitignore is a no-op for already-tracked
+# files; `scripts/check-firebase-config.js` still fails the build if the
+# committed file is the placeholder. FCM push silently fails until the
+# real file ships.
+google-services.json

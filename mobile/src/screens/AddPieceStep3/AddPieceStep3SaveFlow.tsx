@@ -48,6 +48,7 @@ import {
   type PendingUploadPromise,
 } from '../../lib/pendingUpload';
 import { t as tr } from '../../lib/i18n';
+import { showToast } from '../../lib/toast';
 import type { RootStackParamList } from '../../navigation/RootNavigator';
 import type { GarmentFormState } from './garmentMetadataForm.types';
 
@@ -188,6 +189,29 @@ export function useAddPieceStep3SaveFlow(
       const form = input.getFormState();
       const initial = input.initialSnapshot;
 
+      // Price validation. The previous `parseFloat` path silently
+      // truncated European decimals ("12,50" → 12) and accepted negatives
+      // pasted in from another app. Mirror `EditGarmentScreen.handleSave`
+      // — use `Number()` so commas / scientific notation / letters fail
+      // the finite check, and reject negatives. Empty input is allowed and
+      // saves as `undefined` → `null` on the row.
+      const trimmedPrice = form.price.trim();
+      let parsedPrice: number | undefined;
+      if (trimmedPrice.length > 0) {
+        const n = Number(trimmedPrice);
+        if (!Number.isFinite(n) || n < 0) {
+          showToast(
+            'error',
+            tr('editGarment.invalidPrice.title'),
+            tr('editGarment.invalidPrice.body'),
+          );
+          savingRef.current = false;
+          setIsSaving(false);
+          return;
+        }
+        parsedPrice = n;
+      }
+
       try {
         // Resolve the storagePath. If Step 2 already finished its upload, the
         // param is populated and we save immediately. If not, await the in-
@@ -232,16 +256,16 @@ export function useAddPieceStep3SaveFlow(
           formality: form.formality !== initial.formality,
         };
 
-        // Codex P2 round 2 — when the analyzer returned an out-of-canonical
-        // value, the picker state defaulted to '' and the snapshot also
-        // captured ''. Send `undefined` for any field the user did NOT touch
-        // so persistGarment falls back to `analysis.<field>` instead of
-        // nulling it.
+        // Send `undefined` for any picker field the user did NOT touch
+        // so `persistGarment` falls back to `analysis.<field>` instead of
+        // nulling out a value the analyzer produced.
+
         const garment = await addGarment.mutateAsync({
           storagePath: resolvedPath,
           analysis,
           source,
           enableStudioQuality,
+          price: parsedPrice,
           title: trimmedTitle || analysis.title,
           category: form.category || analysis.category || 'top',
           subcategory: aiOverridden.subcategory
