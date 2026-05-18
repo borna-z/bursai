@@ -1,0 +1,61 @@
+# .easignore — overrides .gitignore for EAS Build uploads only.
+#
+# EAS Build uses .gitignore by default to decide what to upload to the
+# build worker (https://docs.expo.dev/build-reference/easignore/). The
+# .gitignore rule for `google-services.json` (round 5 fix on PR #885)
+# is there to prevent accidental `git add` of the real Firebase config
+# locally — but EAS legitimately needs that file in the upload so the
+# Android build can compile against it. Mirror .gitignore here, minus
+# the Firebase line, so EAS gets google-services.json (placeholder or
+# swapped real config) while local git stays protected.
+#
+# Keep this file in sync with .gitignore manually — they cover the same
+# build-exclusion set except for the Firebase line.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# Jest coverage (N4)
+coverage/
+
+# google-services.json is intentionally NOT excluded here so EAS Build
+# can package whichever config (placeholder or real) is on disk at
+# build time. .gitignore still blocks accidental local commits of the
+# real config.
