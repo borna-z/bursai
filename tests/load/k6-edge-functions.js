@@ -296,8 +296,12 @@ export default function (data) {
     apikey: ANON_KEY,
   };
 
-  // Round-robin: 5 endpoints, one per iteration.
-  const choice = __ITER % 5;
+  // Round-robin: 5 endpoints, one per iteration. Offset by __VU so that
+  // simultaneously-starting VUs during the 100→500 ramp don't all hit
+  // choice=0 (analyze_garment) in lockstep, creating synthetic bursts
+  // against one endpoint at a time. Adding __VU spreads concurrent VUs
+  // across the five endpoints from iteration 0 (Codex P2 on PR #896).
+  const choice = (__ITER + __VU) % 5;
 
   if (choice === 0) {
     const r = http.post(
