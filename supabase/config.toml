@@ -90,6 +90,8 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.insights_dashboard]
     verify_jwt = false
+  [functions.dashboard_metrics]
+    verify_jwt = false
   [functions.translate_locale]
     verify_jwt = false
 

@@ -67,30 +67,19 @@ serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    const [queueRes, healthRes, subsRes] = await Promise.all([
+    const [queueRes, healthRes, subsRes, aiCostRes] = await Promise.all([
       supabase.from("view_queue_depth_5min").select("*"),
-      supabase.from("view_function_health").select("*"),
+      supabase.from("view_function_health_recent").select("*"),
       supabase.from("view_subscription_distribution").select("*"),
+      supabase.from("view_ai_cost_per_day").select("*"),
     ]);
 
     if (queueRes.error) throw new Error(`view_queue_depth_5min: ${queueRes.error.message}`);
-    if (healthRes.error) throw new Error(`view_function_health: ${healthRes.error.message}`);
+    if (healthRes.error) throw new Error(`view_function_health_recent: ${healthRes.error.message}`);
     if (subsRes.error) throw new Error(`view_subscription_distribution: ${subsRes.error.message}`);
+    if (aiCostRes.error) throw new Error(`view_ai_cost_per_day: ${aiCostRes.error.message}`);
 
-    // ai_cost_per_day is conditional on the ai_call_log table from a separate
-    // in-flight PR. If the view doesn't exist (PostgREST returns 42P01 / a
-    // PGRST error referencing relation does-not-exist), we return null so the
-    // dashboard can render the rest of the panels normally.
-    let aiCost: unknown = null;
-    const aiCostRes = await supabase.from("view_ai_cost_per_day").select("*");
-    if (aiCostRes.error) {
-      log.info("view_ai_cost_per_day unavailable (ai_call_log table not yet present)", {
-        message: aiCostRes.error.message,
-      });
-      aiCost = null;
-    } else {
-      aiCost = aiCostRes.data;
-    }
+    const aiCost = aiCostRes.data;
 
     return jsonResponse(
       {

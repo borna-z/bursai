@@ -3,7 +3,7 @@
 -- Sprint PR 6 (2026-05-18). Adds four read-only views that the
 -- `dashboard_metrics` edge function reads to expose operational health to the
 -- founder dashboard. Views, not materialized views: dataset sizes are small
--- (last 24 h / 30 d) and we want fresh numbers on every dashboard refresh.
+-- and we want fresh numbers on every dashboard refresh.
 --
 -- Grants:
 --   * service_role only. The dashboard_metrics edge function uses the
@@ -11,10 +11,12 @@
 --     anon/authenticated access; views inherit table RLS, but service_role
 --     bypasses it anyway, so the GRANT is what actually gates reads.
 --
--- Conditional view: view_ai_cost_per_day is only created if the
--- `ai_call_log` table exists (added by a separate in-flight PR). When that
--- table is not present, the view is skipped and dashboard_metrics returns
--- null for that field.
+-- Migration order dependency:
+--   * view_ai_cost_per_day requires `public.ai_call_log` from
+--     20260518120200_ai_call_log.sql (sprint PR #893). Timestamp ordering
+--     enforces that this migration runs second. If PR #893 has not landed
+--     yet, this migration will fail with a clear "relation does not exist"
+--     error — that's the intended behavior (fail loud, not silently skip).
 
 -- 1. Render queue depth in 5-min buckets, last 24 h.
 --    Joined on (bucket, status) so the dashboard can render a stacked bar
@@ -30,85 +32,85 @@ WHERE created_at > NOW() - INTERVAL '24 hours'
 GROUP BY bucket, status
 ORDER BY bucket DESC, status;
 
--- 2. Function health from request_idempotency, last 24 h.
+-- 2. Function health (recent) from request_idempotency.
 --    request_idempotency keys are `${functionName}:${userId}:${rawKey}` so
 --    split_part on ':' yields the function name. status is the cached HTTP
 --    response status; >=400 counts as an error call.
 --
---    Pending claims have status = 0 (see _shared/idempotency.ts CLAIM_TTL_MS):
---    in-flight isolates that haven't written a response yet. Excluding status
---    = 0 keeps the denominator honest — `total_calls` reflects completed
---    requests, not in-flight ones. Only functions that go through
---    _shared/idempotency.ts are represented; non-idempotent endpoints
---    (streaming AI paths, etc.) don't appear here.
-CREATE OR REPLACE VIEW public.view_function_health AS
+--    *** Window: 5 minutes, NOT 24h. *** _shared/idempotency.ts stores rows
+--    with a 5-minute TTL (see CLAIM_TTL_MS / DEFAULT_TTL_MS) and the hourly
+--    `request_idempotency_cleanup` cron deletes expired rows. So the longest
+--    durable window for any deployment older than 5 min is bounded to the
+--    last few minutes of completed requests. Use this view for real-time
+--    spike detection; longer-window analysis (24h+) requires the
+--    edge_function_errors table from sprint PR #891 (alert_check) once that
+--    lands.
+--
+--    Pending claims have status = 0 — in-flight isolates that haven't
+--    written a response yet. Excluding status = 0 keeps the denominator
+--    honest. Only functions that go through _shared/idempotency.ts appear
+--    here; non-idempotent endpoints (streaming AI paths, etc.) don't.
+CREATE OR REPLACE VIEW public.view_function_health_recent AS
 SELECT
   split_part(key, ':', 1) AS function_name,
-  COUNT(*) AS total_calls,
-  COUNT(*) FILTER (WHERE status >= 400) AS error_calls,
+  COUNT(*) AS total_calls_recent,
+  COUNT(*) FILTER (WHERE status >= 400) AS error_calls_recent,
   ROUND(
     100.0 * COUNT(*) FILTER (WHERE status >= 400) / NULLIF(COUNT(*), 0),
     2
-  ) AS error_pct
+  ) AS error_pct_recent
 FROM public.request_idempotency
-WHERE created_at > NOW() - INTERVAL '24 hours'
+WHERE created_at > NOW() - INTERVAL '5 minutes'
   AND status > 0
 GROUP BY function_name
-ORDER BY error_pct DESC NULLS LAST;
+ORDER BY error_pct_recent DESC NULLS LAST;
 
 -- 3. Subscription distribution.
 --    Discovery showed subscription state lives in `public.subscriptions`
 --    (columns: plan TEXT default 'free', status TEXT default 'active').
 --    profiles.is_premium exists too but is a denormalized boolean — the
 --    subscriptions table is the source of truth.
+--
+--    Both columns are nullable in the existing schema (defaults exist but
+--    historical rows may have NULL). Group by the COALESCEd values via a CTE
+--    so e.g. (plan NULL, status 'active') and (plan 'free', status 'active')
+--    collapse into a single 'free'/'active' row in the dashboard — otherwise
+--    the dashboard shows two visually-identical rows.
 CREATE OR REPLACE VIEW public.view_subscription_distribution AS
-SELECT
-  COALESCE(plan, 'free') AS plan,
-  COALESCE(status, 'unknown') AS status,
-  COUNT(*) AS users
-FROM public.subscriptions
+WITH normalized AS (
+  SELECT
+    COALESCE(plan, 'free') AS plan,
+    COALESCE(status, 'unknown') AS status
+  FROM public.subscriptions
+)
+SELECT plan, status, COUNT(*) AS users
+FROM normalized
 GROUP BY plan, status
 ORDER BY users DESC;
 
--- 4. AI cost per day — conditional on the `ai_call_log` table from the
---    in-flight AI logging PR. When the table doesn't exist, the view is
---    skipped and the dashboard endpoint returns null for ai_cost_per_day.
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'ai_call_log'
-  ) THEN
-    EXECUTE $sql$
-      CREATE OR REPLACE VIEW public.view_ai_cost_per_day AS
-      SELECT
-        date_trunc('day', created_at)::date AS day,
-        function_name,
-        provider,
-        COUNT(*) AS calls,
-        SUM(input_tokens) AS input_tokens,
-        SUM(output_tokens) AS output_tokens,
-        ROUND(SUM(estimated_cost_usd)::numeric, 4) AS cost_usd
-      FROM public.ai_call_log
-      WHERE created_at > NOW() - INTERVAL '30 days'
-      GROUP BY day, function_name, provider
-      ORDER BY day DESC, cost_usd DESC;
-    $sql$;
-  END IF;
-END $$;
+-- 4. AI cost per day.
+--    Hard dependency on `public.ai_call_log` from 20260518120200_ai_call_log.sql
+--    (sprint PR #893). Timestamp ordering means that migration runs first.
+--    Unconditional CREATE — if PR #893 hasn't landed, this migration fails
+--    loud with "relation ai_call_log does not exist". That's intentional:
+--    an IF EXISTS guard would silently skip the view and leave it un-created
+--    forever once PR #894 was marked applied.
+CREATE OR REPLACE VIEW public.view_ai_cost_per_day AS
+SELECT
+  date_trunc('day', created_at)::date AS day,
+  function_name,
+  provider,
+  COUNT(*) AS calls,
+  SUM(input_tokens) AS input_tokens,
+  SUM(output_tokens) AS output_tokens,
+  ROUND(SUM(estimated_cost_usd)::numeric, 4) AS cost_usd
+FROM public.ai_call_log
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY day, function_name, provider
+ORDER BY day DESC, cost_usd DESC;
 
--- Grants. The three unconditional views are always granted. The conditional
--- view's grant lives inside the same existence guard so re-runs are safe.
+-- Grants. service_role only — RLS on underlying tables stays in place.
 GRANT SELECT ON public.view_queue_depth_5min TO service_role;
-GRANT SELECT ON public.view_function_health TO service_role;
+GRANT SELECT ON public.view_function_health_recent TO service_role;
 GRANT SELECT ON public.view_subscription_distribution TO service_role;
-
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'ai_call_log'
-  ) THEN
-    EXECUTE 'GRANT SELECT ON public.view_ai_cost_per_day TO service_role';
-  END IF;
-END $$;
+GRANT SELECT ON public.view_ai_cost_per_day TO service_role;
