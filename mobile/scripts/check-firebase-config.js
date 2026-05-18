@@ -1,31 +1,30 @@
 #!/usr/bin/env node
-// Two-mode guard for `mobile/google-services.json`. The two modes have
-// opposite expectations of the file's content:
+// Two-mode guard for `mobile/google-services.json`:
 //
-//   - Default (build-time, EAS / local `android` script): the on-disk
-//     file must be the REAL config — the placeholder marker MUST be
-//     absent. The swap step has to happen before any production build,
-//     otherwise Android ships with broken FCM (push notifications
-//     silently fail). Fails when the marker is still present.
+//   - Default (build-time): protects production EAS Android builds
+//     from shipping the placeholder. Behaviour depends on context:
+//       · EAS Android build (EAS_BUILD_PLATFORM=android): HARD FAIL
+//         when the placeholder marker is present — shipping would
+//         silently break FCM push notifications.
+//       · EAS iOS build (EAS_BUILD_PLATFORM=ios): skip (iOS doesn't
+//         consume google-services.json — Codex P1 PR #885 round 2).
+//       · No EAS context (local `npm run android`, dev sessions):
+//         WARN and proceed — the placeholder is the documented
+//         dev-baseline, hard-failing fresh checkouts would break
+//         dev workflow (Codex P2 PR #885 round 8).
 //
-//   - `--staged` mode (pre-commit hook): the STAGED content must be
-//     the placeholder — the marker MUST be present. A `git add` of a
-//     swap-in-place real config would leak project-scoped Firebase
-//     API keys to git history despite the .gitignore rule (gitignore
-//     is a no-op for tracked files). Reads the staged blob via
-//     `git show :mobile/google-services.json` and rejects the commit
-//     if the marker is gone. `git commit --no-verify` bypasses for
-//     intentional edits.
+//   - `--staged` (pre-commit hook): the staged content MUST still be
+//     the placeholder. A `git add` of a swap-in-place real config
+//     would leak project-scoped Firebase API keys to git history
+//     despite the .gitignore rule (gitignore is a no-op for tracked
+//     files). Reads the staged blob via `git show :mobile/...` and
+//     rejects the commit if the marker is gone. `git commit
+//     --no-verify` bypasses for intentional edits.
 //
 // Wired into:
 //   - `package.json` `eas-build-pre-install` + `android` script —
-//     default (build-time) mode.
+//     default mode.
 //   - repo-root `.husky/pre-commit` — `--staged` mode.
-//
-// EAS sets `EAS_BUILD_PLATFORM` to `android` or `ios`; iOS builds
-// don't consume google-services.json (Codex P1 PR #885 round 2), so
-// the build-time mode skips iOS. The pre-commit mode runs regardless
-// of platform — credential leaks are platform-agnostic.
 
 const fs = require('fs');
 const path = require('path');
@@ -95,6 +94,15 @@ if (easPlatform && easPlatform !== 'android') {
   process.exit(0);
 }
 
+// Production-build strictness only kicks in for EAS Android builds.
+// Codex P2 PR #885 round 8: hard-failing local dev (`npm run android`)
+// would block fresh-checkout dev builds because the committed placeholder
+// is the documented dev-baseline — the placeholder exists precisely so
+// dev environments don't need real Firebase credentials. Outside EAS we
+// emit a warning and proceed; the EAS pre-install hook still fails the
+// remote build if the swap step didn't happen.
+const isEasAndroid = easPlatform === 'android';
+
 if (!fs.existsSync(CONFIG_PATH)) {
   console.error(
     `ERROR: ${CONFIG_PATH} is missing. EAS / prebuild needs this file; ` +
@@ -106,13 +114,25 @@ if (!fs.existsSync(CONFIG_PATH)) {
 
 const contents = fs.readFileSync(CONFIG_PATH, 'utf8');
 if (contents.includes(PLACEHOLDER_MARKER)) {
+  if (!isEasAndroid) {
+    console.warn(
+      `WARNING: ${CONFIG_PATH} contains the placeholder marker. FCM ` +
+        'push notifications will not work in this build. This is the ' +
+        'expected dev-baseline; swap in the real google-services.json ' +
+        '(or use the EAS file-secret pipeline) before any production ' +
+        'release.',
+    );
+    process.exit(0);
+  }
   console.error(
     `ERROR: ${CONFIG_PATH} still contains the placeholder marker ` +
-      `"${PLACEHOLDER_MARKER}". An Android build with this file will ship ` +
-      'with broken FCM (push notifications will silently fail). Swap in the ' +
-      'real google-services.json from console.firebase.google.com before ' +
-      'building. If you genuinely need to build locally without FCM, set ' +
-      'ALLOW_PLACEHOLDER_FIREBASE=1 in the environment.',
+      `"${PLACEHOLDER_MARKER}". This is an EAS Android build — shipping ` +
+      'with the placeholder would mean broken FCM (push notifications ' +
+      'silently fail). Swap in the real google-services.json from ' +
+      'console.firebase.google.com (or wire the EAS file-secret) before ' +
+      'building. If you genuinely need to push an EAS Android build ' +
+      'without FCM, set ALLOW_PLACEHOLDER_FIREBASE=1 in the build ' +
+      'environment.',
   );
   if (process.env.ALLOW_PLACEHOLDER_FIREBASE !== '1') {
     process.exit(1);
