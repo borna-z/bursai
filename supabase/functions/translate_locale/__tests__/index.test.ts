@@ -138,6 +138,46 @@ describe('translate_locale — Gemini call', () => {
     expect(body.translations.greet).toBe('Hello {name}');
   });
 
+  it('strips ```json fences before parsing', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: '```json\n{"translations":{"a":"A_fr"}}\n```',
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A' },
+        sv_reference: { a: 'A_sv' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.translations.a).toBe('A_fr');
+  });
+
+  it('extracts JSON when wrapped in leading prose', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: 'Sure! Here you go:\n{"translations":{"a":"A_fr"}}',
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A' },
+        sv_reference: { a: 'A_sv' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.translations.a).toBe('A_fr');
+  });
+
   it('returns 502 when Gemini emits unparseable JSON', async () => {
     vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
       data: 'not json at all',

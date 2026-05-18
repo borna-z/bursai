@@ -109,19 +109,34 @@ Hard rules:
     });
   }
 
-  // Gemini returns the JSON object directly (data: any) or a string. Try
-  // both: if it's already an object, use it; otherwise JSON.parse the string.
+  // Gemini returns the JSON object directly (data: any) or a string.
+  // Despite the prompt saying "JSON only", the model frequently wraps the
+  // payload in ```json ... ``` fences or adds leading prose. Strip both.
   let parsed: { translations?: Record<string, string> };
   try {
-    if (typeof aiData === "string") {
-      parsed = JSON.parse(aiData);
-    } else if (aiData && typeof aiData === "object") {
+    if (aiData && typeof aiData === "object") {
       parsed = aiData as { translations?: Record<string, string> };
+    } else if (typeof aiData === "string") {
+      let s = aiData.trim();
+      // Strip ```json or ``` fences.
+      const fenceMatch = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+      if (fenceMatch) s = fenceMatch[1].trim();
+      // If still not JSON-shaped, find the first { and last } and slice.
+      if (!s.startsWith("{")) {
+        const start = s.indexOf("{");
+        const end = s.lastIndexOf("}");
+        if (start >= 0 && end > start) s = s.slice(start, end + 1);
+      }
+      parsed = JSON.parse(s);
     } else {
       return json(502, { error: "translate_locale: empty response from gemini" });
     }
-  } catch {
-    return json(502, { error: "translate_locale: malformed JSON from gemini" });
+  } catch (err) {
+    return json(502, {
+      error: "translate_locale: malformed JSON from gemini",
+      sample: typeof aiData === "string" ? aiData.slice(0, 200) : String(aiData).slice(0, 200),
+      detail: String(err),
+    });
   }
   const aiTranslations = parsed.translations ?? {};
 
