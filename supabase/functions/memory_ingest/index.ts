@@ -69,6 +69,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 import { authenticate } from "../_shared/auth.ts";
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { logger } from "../_shared/logger.ts";
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 import {
   enforceRateLimit,
   RateLimitError,
@@ -185,6 +187,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  // Correlation id for the whole request. Mobile client injects
+  // `x-request-id`; absent it (cron/internal), mint one. Pair with the
+  // structured logger so every line emitted below shares the id.
+  const requestId = getOrCreateRequestId(req);
+  const log = logger("memory_ingest", requestId);
+  log.info("request_received");
 
   if (req.method !== "POST") {
     return new Response(
@@ -618,6 +627,26 @@ Deno.serve(async (req) => {
       typeof rpcResult.signal_id === "string" ? rpcResult.signal_id : "";
     const pairDelta =
       typeof rpcResult.pair_delta === "number" ? rpcResult.pair_delta : 0;
+
+    // Stamp request_id onto the just-written feedback_signals row so the
+    // trace correlates end-to-end. Done as a post-insert UPDATE to keep
+    // the `ingest_memory_event` RPC signature stable for the launch
+    // freeze (extending the RPC would require an ALTER FUNCTION migration
+    // plus coordinated rollout). Non-fatal on failure: the column is
+    // observability-only, so we log + continue rather than poisoning a
+    // successful signal write.
+    if (signalId) {
+      const { error: stampError } = await adminClient
+        .from("feedback_signals")
+        .update({ request_id: requestId })
+        .eq("id", signalId);
+      if (stampError) {
+        log.warn("feedback_signals.request_id stamp failed (non-fatal)", {
+          signal_id: signalId,
+          error: stampError.message,
+        });
+      }
+    }
 
     // ── 9. Observability log line ──────────────────────────────────────
     // One line per successful ingest. Used by post-launch dashboards to

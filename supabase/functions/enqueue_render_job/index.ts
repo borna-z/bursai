@@ -40,8 +40,7 @@ import { normalizeMannequinPresentation } from "../_shared/mannequin-presentatio
 import { deriveRenderJobId } from "../_shared/render-job-id.ts";
 import { logger } from "../_shared/logger.ts";
 import { captureError } from "../_shared/observability.ts";
-
-const log = logger("enqueue_render_job");
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 
 /**
  * Bump when the prompt or Gemini parameters change materially. Must stay in
@@ -111,11 +110,11 @@ function isRetryableProcessorStatus(status: number): boolean {
 // Drain a response body without buffering it so the underlying HTTP/1.1
 // connection releases cleanly. Deno keeps the socket pinned until the body
 // stream is consumed or cancelled.
-async function drainBody(res: Response): Promise<void> {
+async function drainBody(res: Response, requestId?: string): Promise<void> {
   try {
     await res.body?.cancel();
   } catch (err) {
-    captureError("enqueue_render_job.drain_body_failed", err);
+    captureError("enqueue_render_job.drain_body_failed", err, requestId ? { request_id: requestId } : {});
   }
 }
 
@@ -134,6 +133,8 @@ async function invokeProcessorWithRetry(
   processorUrl: string,
   bearer: string,
   jobId: string,
+  requestId: string,
+  log: ReturnType<typeof logger>,
 ): Promise<void> {
   let lastError: unknown = null;
   let lastStatus: number | null = null;
@@ -151,18 +152,21 @@ async function invokeProcessorWithRetry(
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${bearer}`,
+          // Forward the inbound correlation id so process_render_jobs (and
+          // any function it chains to) emits logs against the same id.
+          "x-request-id": requestId,
         },
         body: JSON.stringify({ jobId }),
         signal: controller.signal,
       });
       if (res.ok) {
-        await drainBody(res);
+        await drainBody(res, requestId);
         return;
       }
       lastStatus = res.status;
       // Drain even on non-2xx — an unread body holds the socket open on
       // Deno's HTTP/1.1 path regardless of status code.
-      await drainBody(res);
+      await drainBody(res, requestId);
       if (!isRetryableProcessorStatus(res.status)) {
         log.warn("process_render_jobs kickoff non-retryable status (cron will retry)", {
           jobId,
@@ -216,6 +220,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  // Request-id is captured BEFORE any other gate so even early-return paths
+  // (overload, malformed JSON, auth failure) emit logs against the same id
+  // the caller can grep on. New uuid when no `x-request-id` is provided.
+  const requestId = getOrCreateRequestId(req);
+  const log = logger("enqueue_render_job", requestId);
+  log.info("request_received");
 
   if (checkOverload("enqueue_render_job")) {
     return overloadResponse(CORS_HEADERS);
@@ -392,6 +403,7 @@ serve(async (req) => {
         prompt_version: RENDER_PROMPT_VERSION,
         reserve_key: reserveKey,
         force,
+        request_id: requestId,
       })
       .select("id, status")
       .single();
@@ -516,6 +528,8 @@ serve(async (req) => {
         processorUrl,
         RENDER_WORKER_BEARER,
         canonicalJobId,
+        requestId,
+        log,
       );
       // Supabase's Edge runtime can terminate the isolate as soon as the
       // response is returned, which would abort the retry loop before its

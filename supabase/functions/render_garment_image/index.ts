@@ -4,6 +4,8 @@ import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { CORS_HEADERS } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
 import { captureWarning, classifyValidatorError } from '../_shared/observability.ts';
+import { getOrCreateRequestId } from '../_shared/request-id.ts';
+import { logger } from '../_shared/logger.ts';
 import { normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
 import { classifyCategory } from '../_shared/render-category.ts';
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from '../_shared/scale-guard.ts';
@@ -100,6 +102,16 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  // End-to-end correlation: honor `x-request-id` from the worker (or the
+  // user-JWT path when the mobile client forwards its own id), mint a
+  // fresh UUID otherwise. Stamps the structured logger + Sentry tags so
+  // every event emitted by this function correlates with the upstream
+  // render_jobs.request_id row and the worker's claim trace. Codex round
+  // 3 on PR #895 caught that the worker was forwarding the header but
+  // this callee never read it.
+  const requestId = getOrCreateRequestId(req);
+  const log = logger('render_garment_image', requestId);
 
   // ── Scale guard: overload short-circuit (no auth/DB needed) ──
   if (checkOverload('render_garment_image')) {
@@ -916,6 +928,7 @@ serve(async (req) => {
                 attempt: attemptIndex + 1,
                 category: categoryClass,
                 reason: classifyValidatorError(validationError),
+                request_id: requestId,
               });
               console.warn('render_garment_image validator unavailable — accepting attempt', {
                 garmentId: garment.id,
@@ -1081,12 +1094,16 @@ serve(async (req) => {
     recordError('render_garment_image');
 
     const errorMessage = getErrorMessage(error);
-    console.error('render_garment_image error', {
+    // Top-level catch: emit via the structured logger so the trace id is
+    // attached at the most important hop (render failures). Other
+    // console.* call sites in this function are left for a follow-on
+    // pass — this PR's scope was the top-5 noisiest functions; the rest
+    // of render_garment_image's instrumentation migration is tracked in
+    // findings-log.md.
+    log.exception('render_garment_image error', error, {
       garmentId: garmentIdForFailure,
       provider: 'gemini',
       geminiApiKeyConfigured: Boolean(Deno.env.get('GEMINI_API_KEY')?.trim()),
-      error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
     });
 
     if (supabase && garmentIdForFailure) {

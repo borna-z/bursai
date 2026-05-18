@@ -16,8 +16,11 @@ import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/o
 import { logger } from "../_shared/logger.ts";
 import { MOOD_MAP, rankGarmentsForMood, formalityLabel } from "../_shared/retrieval.ts";
 import { captureError } from "../_shared/observability.ts";
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 
-const log = logger("mood_outfit");
+// Loggers are constructed per-request inside `serve(...)` and
+// `generateMoodOutfitPayload(...)` so every line carries the inbound
+// `x-request-id`. See `_shared/request-id.ts`.
 
 const KEEPALIVE_INTERVAL_MS = 2000;
 const HARD_ABORT_TIMEOUT_MS = 28000;
@@ -152,6 +155,9 @@ async function generateMoodOutfitPayload(
   signal: AbortSignal,
   requestId: string,
 ): Promise<Record<string, unknown>> {
+  // Per-request logger bound to the inbound `x-request-id` so every line
+  // emitted from this handler collates against the same trace id.
+  const log = logger("mood_outfit", requestId);
   const corsHeaders = corsHeadersFor(req);
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -401,7 +407,12 @@ serve(async (req) => {
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
   const abortController = new AbortController();
-  const requestId = crypto.randomUUID();
+  // Honor inbound `x-request-id` (mobile client injects it on every call)
+  // so the stream lifecycle, payload generator, and any error caught at the
+  // outer wrapper all collate on the same id. Falls back to a fresh uuid
+  // when absent (e.g., internal callers without the header).
+  const requestId = getOrCreateRequestId(req);
+  const log = logger("mood_outfit", requestId);
 
   const sendChunk = async (chunk: string) => {
     await writer.write(encoder.encode(chunk));

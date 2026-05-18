@@ -81,20 +81,28 @@ import {
 } from "../_shared/scale-guard.ts";
 import { getStripeConfig } from "../_shared/stripe-config.ts";
 import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
+import { logger } from "../_shared/logger.ts";
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 
 const TRIAL_DAYS = 3;
-
-const log = (step: string, details?: unknown) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
-  console.log(`[start_trial] ${step}${detailsStr}`);
-};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
-  console.warn("[deprecated] web-only Stripe edge function called", { fn: "start_trial" });
+  // Request-id binds every log line emitted for this call. Honors mobile
+  // `x-request-id`, mints a fresh uuid otherwise.
+  const requestId = getOrCreateRequestId(req);
+  const slog = logger("start_trial", requestId);
+  // Back-compat shim: the original local `log(step, details)` API. Keeps
+  // existing call sites unchanged while routing through the structured
+  // logger (so every line now carries `level`, `fn`, `request_id`, `ts`).
+  const log = (step: string, details?: unknown) => {
+    slog.info(step, details as Record<string, unknown> | undefined);
+  };
+
+  slog.warn("deprecated web-only Stripe edge function called", { fn: "start_trial" });
 
   if (req.method !== "POST") {
     return new Response(
@@ -221,7 +229,7 @@ serve(async (req) => {
       // resolved and we recover cleanly. Don't cache the failure (no
       // storeIdempotencyResult) — next call should retry, not replay
       // a stale 503.
-      console.error("[start_trial] subscriptions pre-check failed (failing closed):", existingError.message);
+      slog.error("subscriptions pre-check failed (failing closed)", { error: existingError.message });
       recordError("start_trial");
       return new Response(
         JSON.stringify({
@@ -291,7 +299,7 @@ serve(async (req) => {
       // read (account deletion race?), or the auth admin API blipped.
       // Either way, return 503 so AuthContext's invoke-error rollback
       // re-fires next SIGNED_IN.
-      console.error("[start_trial] auth.admin.getUserById failed (failing closed):", freshUserError?.message);
+      slog.error("auth.admin.getUserById failed (failing closed)", { error: freshUserError?.message });
       recordError("start_trial");
       return new Response(
         JSON.stringify({
@@ -433,7 +441,7 @@ serve(async (req) => {
       // hit layer 3 (Stripe idempotency keys) and reuse the same customer +
       // subscription objects, then the upsert here will succeed. Mirror to
       // profiles.stripe_customer_id is also skipped — same recovery path.
-      console.error("[start_trial] subscriptions upsert failed (Stripe ahead of DB):", upsertError.message);
+      slog.error("subscriptions upsert failed (Stripe ahead of DB)", { error: upsertError.message });
       recordError("start_trial");
       return new Response(
         JSON.stringify({
@@ -458,7 +466,7 @@ serve(async (req) => {
       .update({ stripe_customer_id: customerId })
       .eq("id", userId);
     if (profileError) {
-      console.warn("[start_trial] profiles.stripe_customer_id mirror failed:", profileError.message);
+      slog.warn("profiles.stripe_customer_id mirror failed", { error: profileError.message });
     }
 
     // Codex P1 round 1 on PR #698 — mirror plan into the legacy
@@ -483,7 +491,7 @@ serve(async (req) => {
         { onConflict: "user_id" },
       );
     if (legacyMirrorError) {
-      console.warn("[start_trial] user_subscriptions mirror failed:", legacyMirrorError.message);
+      slog.warn("user_subscriptions mirror failed", { error: legacyMirrorError.message });
     }
 
     // Clear `trial_pending` from user_metadata so future SIGNED_IN events
@@ -505,7 +513,7 @@ serve(async (req) => {
       { user_metadata: updatedMetadata },
     );
     if (clearMetadataError) {
-      console.warn("[start_trial] trial_pending metadata clear failed:", clearMetadataError.message);
+      slog.warn("trial_pending metadata clear failed", { error: clearMetadataError.message });
     }
 
     log("Trial started", { userId, customerId, subscriptionId: subscription.id, trialEnd });
@@ -534,7 +542,7 @@ serve(async (req) => {
     const errorType = (err as { type?: string })?.type;
 
     recordError("start_trial");
-    console.error("[start_trial] unexpected error:", { errorMessage, errorType });
+    slog.error("unexpected error", { errorMessage, errorType });
 
     // Stripe API failures (rate-limited, idempotency-key-conflict, etc.)
     // surface as 502 so the client can distinguish them from our own infra

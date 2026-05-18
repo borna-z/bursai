@@ -52,6 +52,14 @@ const ENVIRONMENT = (typeof Deno !== "undefined" ? Deno.env.get("SENTRY_ENVIRONM
 
 type TagValue = string | number | boolean | null | undefined;
 
+/**
+ * Normalize tag values to strings for the Sentry store endpoint.
+ *
+ * Any key passed in `tags` is forwarded — callers that want end-to-end
+ * trace correlation pass `request_id` here (matching the
+ * `_shared/logger.ts` log-line key) so Sentry events and Supabase Logs
+ * collate on the same id. See `_shared/request-id.ts`.
+ */
 function normalizeTags(tags: Record<string, TagValue>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(tags)) {

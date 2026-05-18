@@ -23,6 +23,8 @@
 // mobile baseline (M0–M8) is all raw fetch — porting via fetch keeps the
 // migration drop-in for every existing hook.
 
+import * as Crypto from 'expo-crypto';
+
 import { log } from './log';
 import { supabase, supabaseUrl } from './supabase';
 
@@ -56,6 +58,13 @@ export interface CallOpts {
    * de-duplicate mutations.
    */
   idempotent?: boolean;
+  /**
+   * Optional `x-request-id` to pin onto this logical call. When omitted, a
+   * fresh UUID is minted per call so every edge invocation gets traced.
+   * Pair with the server-side `_shared/request-id.ts` helper for end-to-end
+   * correlation across chained edge functions. Reused across retries.
+   */
+  requestId?: string;
 }
 
 // ─── typed errors ─────────────────────────────────────────────────────
@@ -234,6 +243,7 @@ export async function callEdgeFunction<T>(
     headers: extraHeaders,
     body,
     idempotent,
+    requestId: callerRequestId,
   } = opts;
 
   if (!checkCircuit(fnName)) {
@@ -252,6 +262,13 @@ export async function callEdgeFunction<T>(
   }
 
   const idempotencyKey = idempotent ? randomKey() : null;
+  // Always mint a UUID for `x-request-id` (or honor the caller-supplied
+  // value) so every edge invocation is traceable end-to-end. The server
+  // persists this into `render_jobs.request_id uuid` / `feedback_signals
+  // .request_id uuid`, so the value MUST be a real UUID — using a real
+  // randomUUID() (not the loose randomKey() shape) is load-bearing.
+  // Reused across retries so a retried call collates with its first attempt.
+  const requestIdHeader = callerRequestId ?? Crypto.randomUUID();
 
   let lastError: Error | null = null;
   let authRetried = false;
@@ -307,6 +324,7 @@ export async function callEdgeFunction<T>(
       if (idempotencyKey) {
         reqHeaders['X-Idempotency-Key'] = idempotencyKey;
       }
+      reqHeaders['x-request-id'] = requestIdHeader;
 
       const response = await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
         method: 'POST',

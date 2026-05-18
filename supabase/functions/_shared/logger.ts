@@ -18,6 +18,7 @@ interface LogEntry {
   fn: string;
   msg: string;
   ts: string;
+  request_id?: string;
   data?: Record<string, unknown>;
 }
 
@@ -38,13 +39,28 @@ function emit(entry: LogEntry) {
   }
 }
 
-export function logger(functionName: string) {
+/**
+ * Build a structured logger bound to a function name.
+ *
+ * `requestId` (optional) is folded into every emitted log line as
+ * `request_id`. Pair with `_shared/request-id.ts#getOrCreateRequestId(req)`
+ * at the entrypoint of each `Deno.serve` handler so every log line emitted
+ * during one request — plus any downstream edge function the handler POSTs
+ * to via `x-request-id` — shares the same correlation id. Trace one
+ * request end-to-end with:
+ *   supabase functions logs --search 'request_id=<uuid>'
+ *
+ * Backward-compatible: existing callers passing only `functionName` keep
+ * their current shape; `request_id` is omitted from log lines when unset.
+ */
+export function logger(functionName: string, requestId?: string) {
   const log = (level: LogLevel, msg: string, data?: Record<string, unknown>) => {
     emit({
       level,
       fn: functionName,
       msg,
       ts: new Date().toISOString(),
+      ...(requestId ? { request_id: requestId } : {}),
       ...(data ? { data } : {}),
     });
   };
