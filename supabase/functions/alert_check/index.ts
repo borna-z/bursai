@@ -15,10 +15,12 @@
  * The 6 rules:
  *   1. negative_balance      — any render_credits row with a negative balance
  *   2. orphan_render_jobs    — > 5 pending jobs older than 10 min
- *   3. stripe_webhook_errors — >= 5% rows in `stripe_events` with
- *                              processed_ok=false AND error is not null,
- *                              processed in the last 5 min (the table
- *                              stripe_webhook actually writes to)
+ *   3. stripe_webhook_errors — >= 5% error rate over last 5 min, where
+ *                              denominator is rows in `stripe_events`
+ *                              (one per webhook receipt) and numerator is
+ *                              rows in `edge_function_errors` with
+ *                              function_name='stripe_webhook' (populated by
+ *                              captureError in stripe_webhook's catches)
  *   4. ai_error_rate         — >= 20% AI function errors vs ai_rate_limits
  *                              calls, min volume 10, last 5 min
  *   5. start_trial_failures  — >= 2% start_trial errors vs new profiles
@@ -251,22 +253,25 @@ async function rule3StripeWebhookFailures(
   };
   const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-  // Codex PR #891 round 2 P1: query the table `stripe_webhook` actually
-  // writes to. The earlier draft used `request_idempotency` with key prefix
-  // `stripe_%`, but stripe_webhook does NOT use request_idempotency — it
-  // writes events into `public.stripe_events` and updates `processed_ok`
-  // (boolean) + `error` (text) once processing completes. See
-  // supabase/functions/stripe_webhook/index.ts:87-99 (upsert) and lines
-  // 253-261 (update with processed_ok / error). With the old source, total
-  // stayed 0 and the rule never alerted on a Stripe webhook outage.
+  // Codex PR #891 round 2 P2: the prior draft queried
+  // `stripe_events.processed_ok` / `.error`, but those columns DO NOT EXIST
+  // in the table — schema is `(id, stripe_event_id, type, data, processed_at)`
+  // (see initial_schema.sql:1197). stripe_webhook's local `processed_ok` /
+  // `error` writes silently fail server-side (PostgREST rejects unknown
+  // columns). The rule was returning PostgREST column errors instead of a
+  // rate, so it could never fire.
   //
-  // We use `processed_at > cutoff` (not `created_at`) because the row is
-  // INSERTed with `processed_at = now()` at receipt and then UPDATEd with
-  // the final `processed_at` at completion — either way the timestamp
-  // tracks the last touch within our 5-min window. Failures are rows where
-  // `processed_ok = false` AND `error IS NOT NULL` (signature-verification
-  // failures don't reach the insert path; only post-insert processing
-  // failures do).
+  // Replacement source: denominator is `stripe_events` row count (every
+  // webhook receipt creates one row at line 87-99 of stripe_webhook), and
+  // numerator is `edge_function_errors` rows with
+  // `function_name = 'stripe_webhook'`. Stripe_webhook now mirrors its inner
+  // and outer catches through `captureError("stripe_webhook.*", ...)` in
+  // this same PR (see stripe_webhook/index.ts:248-258, 268-275) so the
+  // numerator is populated on real processing failures.
+  //
+  // `processed_at > cutoff` on stripe_events catches all rows touched in the
+  // last 5 minutes (the column defaults to now() on upsert and stays close
+  // to receipt time).
   const { count: total, error: totalErr } = await supabase
     .from("stripe_events")
     .select("id", { count: "exact", head: true })
@@ -278,11 +283,10 @@ async function rule3StripeWebhookFailures(
   if (!total || total === 0) return r;
 
   const { count: errs, error: errsErr } = await supabase
-    .from("stripe_events")
+    .from("edge_function_errors")
     .select("id", { count: "exact", head: true })
-    .gt("processed_at", cutoff)
-    .eq("processed_ok", false)
-    .not("error", "is", null);
+    .eq("function_name", "stripe_webhook")
+    .gt("created_at", cutoff);
   if (errsErr) {
     r.error = errsErr.message;
     return r;
