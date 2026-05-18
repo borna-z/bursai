@@ -17,6 +17,7 @@
 
 import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,12 +28,14 @@ import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
+import { Caption } from '../components/Caption';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment } from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
 import { useGenerateGarmentImage } from '../hooks/useGenerateGarmentImage';
+import { useRetryGarmentRender } from '../hooks/useRetryGarmentRender';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { localISODate } from '../lib/outfitDisplay';
@@ -173,15 +176,86 @@ export function GarmentDetailScreen() {
     });
   }, [garment, generateImage]);
 
+  // Manual studio-render retry — surfaces under the hero for failed,
+  // already-rendered, or never-rendered garments. Server-side pipeline is
+  // unchanged; the existing useRenderJobStatus poller picks up the new
+  // render_jobs row and invalidates the garment cache on completion.
+  const retryRender = useRetryGarmentRender();
+  const retryRenderInFlightRef = React.useRef(false);
+  // Nonce ownership lives on the screen, not the hook. The hook used to
+  // mint a fresh UUID inside its mutationFn — but after a transient
+  // network failure where the server-side reservation was already minted,
+  // a user re-tap would mint nonce B → new reserve_key → second
+  // reservation. The reserve-key idempotency on enqueue_render_job
+  // (supabase/functions/enqueue_render_job/index.ts:444-446) hits the
+  // replay path when the same nonce repeats, so we keep ONE nonce per
+  // logical attempt and rotate it only after the worker has claimed
+  // the job. (Codex P1 round 3 on PR #900.)
+  const retryRenderNonceRef = React.useRef<string | null>(null);
+  // Release the synchronous in-flight lock + the nonce only when either:
+  //   - the worker has claimed the job (render_status becomes active —
+  //     the visibility check below hides the button anyway, and a fresh
+  //     logical attempt next time gets a new nonce), OR
+  //   - the mutation errored (button stays visible — user may re-tap and
+  //     the SAME nonce must be reused to dedupe at the server). Lock
+  //     clears so the re-tap is allowed; nonce stays.
+  // The prior shape cleared the ref inside mutate's onSettled, which
+  // raced the cache-invalidation refetch (Codex P1 round 2 on PR #900).
+  React.useEffect(() => {
+    if (isStudioRendering) {
+      // Worker has claimed the job — fresh logical attempt next time.
+      retryRenderInFlightRef.current = false;
+      retryRenderNonceRef.current = null;
+    } else if (retryRender.isSuccess) {
+      // Success path: rotate BOTH lock and nonce. If the success was a
+      // terminal-replay (server returned an existing terminal job row
+      // because the same nonce already produced a completed render),
+      // isStudioRendering will never tick true — keeping the nonce
+      // cached here would re-hit the same replay on every subsequent
+      // tap and the user could never actually trigger a fresh render.
+      // (Codex P2 round 5 on PR #900.) Tiny race window: between
+      // mutate succeeding and useRenderJobStatus / useGarment refetch
+      // landing render_status='pending', a perfectly-timed user
+      // double-tap would mint a second reservation. The synchronous
+      // retryRenderInFlightRef catches same-render double-taps; only
+      // a tap that lands AFTER React commits with isPending=false but
+      // BEFORE the refetch lands would slip through. Acceptable for a
+      // manual feature — getting stuck on a replay forever is strictly
+      // worse than the rare double-mint.
+      retryRenderInFlightRef.current = false;
+      retryRenderNonceRef.current = null;
+    } else if (retryRender.isError) {
+      // Error path: release the lock so the user can re-tap. KEEP the
+      // nonce — server-side reserve_key idempotency dedupes a real
+      // retry of the same attempt.
+      retryRenderInFlightRef.current = false;
+    }
+  }, [isStudioRendering, retryRender.isError, retryRender.isSuccess]);
+  const handleRetryRender = React.useCallback(() => {
+    if (retryRenderInFlightRef.current || !garment) return;
+    retryRenderInFlightRef.current = true;
+    hapticLight();
+    if (!retryRenderNonceRef.current) {
+      retryRenderNonceRef.current = Crypto.randomUUID();
+    }
+    retryRender.mutate({
+      garmentId: garment.id,
+      clientNonce: retryRenderNonceRef.current,
+    });
+  }, [garment, retryRender]);
+
   // M21 — paywall sticky-ref. Routes to PaywallScreen once per screen
   // lifetime when either the condition-assess or the generate-image
   // hook surfaces SUBSCRIPTION_SENTINEL. Released on focus regain or
   // when both hooks move off the sentinel. See PR #816 / PR #747.
   const generateImageError =
     generateImage.error instanceof Error ? generateImage.error.message : null;
+  const retryRenderErrorMessage =
+    retryRender.error instanceof Error ? retryRender.error.message : null;
   const paywallSentinelHit =
     assessError === SUBSCRIPTION_SENTINEL ||
-    generateImageError === SUBSCRIPTION_SENTINEL;
+    generateImageError === SUBSCRIPTION_SENTINEL ||
+    retryRenderErrorMessage === SUBSCRIPTION_SENTINEL;
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
     if (paywallSentinelHit && !paywallShownRef.current) {
@@ -342,6 +416,41 @@ export function GarmentDetailScreen() {
   const heroPath =
     garment.rendered_image_path || garment.original_image_path || garment.image_path || null;
   const showGenerateImageCta = !heroPath && !isStudioRendering;
+
+  // Manual retry button: shows under the hero in three states. Hidden
+  // while a render is in flight (existing pill takes over) or when the
+  // garment has no image at all (Generate-image CTA covers that path).
+  const retryRenderState: 'failed' | 'ready' | 'never' | null = (() => {
+    if (!heroPath || isStudioRendering) return null;
+    if (isStudioFailed) return 'failed';
+    if (hasRenderedImage) return 'ready';
+    return 'never';
+  })();
+  const retryRenderLabel = (() => {
+    switch (retryRenderState) {
+      case 'failed':
+        return tr('garmentDetail.retryRender.labelFailed');
+      case 'ready':
+        return tr('garmentDetail.retryRender.labelReady');
+      case 'never':
+        return tr('garmentDetail.retryRender.labelNever');
+      default:
+        return null;
+    }
+  })();
+  const retryRenderInlineError = (() => {
+    if (!retryRender.error) return null;
+    const message = retryRenderErrorMessage ?? '';
+    if (message === SUBSCRIPTION_SENTINEL) return null;
+    const errAny = retryRender.error as { retryAfter?: number; name?: string };
+    if (errAny?.name === 'EdgeFunctionRateLimitError' && typeof errAny.retryAfter === 'number') {
+      return tr('garmentDetail.retryRender.errorRateLimit', {
+        seconds: String(errAny.retryAfter),
+      });
+    }
+    return tr('garmentDetail.retryRender.errorGeneric');
+  })();
+
   const heroBadge: GarmentDetailHeroBadge = isStudioRendering
     ? 'rendering'
     : hasRenderedImage
@@ -394,6 +503,21 @@ export function GarmentDetailScreen() {
         }}
         showsVerticalScrollIndicator={false}>
         <GarmentDetailHero garment={garment} badge={heroBadge} />
+
+        {retryRenderLabel ? (
+          <View style={{ gap: 6 }}>
+            <Button
+              label={retryRender.isPending ? tr('garmentDetail.retryRender.labelPending') : retryRenderLabel}
+              disabled={retryRender.isPending}
+              onPress={handleRetryRender}
+            />
+            {retryRenderInlineError ? (
+              <Caption style={{ paddingHorizontal: 4 }}>
+                {retryRenderInlineError}
+              </Caption>
+            ) : null}
+          </View>
+        ) : null}
 
         <GarmentDetailTabs
           fields={fields}

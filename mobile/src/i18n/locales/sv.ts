@@ -2058,4 +2058,12 @@ export const sv: Record<string, string> = {
   // ─── Audit FIX 7 (2026-05-18) — AddPieceStep3 inköpspris. ───────────
   'addpiece.step3.field.price': 'Inköpspris',
   'addpiece.step3.field.price.placeholder': 'Valfritt',
+
+  // ─── Garment detail — studio render retry (2026-05-18) ─────────────────
+  'garmentDetail.retryRender.labelFailed': 'Försök studiorendering igen',
+  'garmentDetail.retryRender.labelReady': 'Rendera om',
+  'garmentDetail.retryRender.labelNever': 'Gör studiokvalitet',
+  'garmentDetail.retryRender.errorRateLimit': 'För många renderingar just nu — försök igen om {seconds} s.',
+  'garmentDetail.retryRender.errorGeneric': 'Kunde inte starta renderingen. Tryck för att försöka igen.',
+  'garmentDetail.retryRender.labelPending': 'Arbetar…',
 };
