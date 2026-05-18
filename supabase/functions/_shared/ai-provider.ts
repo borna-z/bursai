@@ -161,7 +161,26 @@ function convertMessagesForAnthropic(
         if (block.type === "text" && typeof block.text === "string") {
           blocks.push({ type: "text", text: block.text });
         } else if (block.type === "image_url" && block.image_url?.url) {
-          blocks.push({ type: "image", source: { type: "url", url: block.image_url.url } });
+          // Anthropic's `source.type='url'` requires a fetchable HTTP(S) URL.
+          // `data:image/...;base64,...` URLs would 400 from Anthropic — split
+          // them into `source.type='base64'` with explicit media_type + data.
+          const u: string = block.image_url.url;
+          if (u.startsWith("data:")) {
+            const commaIdx = u.indexOf(",");
+            if (commaIdx > 5) {
+              const header = u.slice(5, commaIdx); // strip "data:" prefix
+              const media_type = header.split(";")[0].trim().toLowerCase();
+              const data = u.slice(commaIdx + 1);
+              blocks.push({
+                type: "image",
+                source: { type: "base64", media_type, data },
+              });
+              continue;
+            }
+            // Malformed data URL — skip rather than ship junk to Anthropic.
+            continue;
+          }
+          blocks.push({ type: "image", source: { type: "url", url: u } });
         } else if (block.type === "image" && block.source) {
           // already Anthropic-shaped; pass through.
           blocks.push(block);
@@ -263,8 +282,20 @@ async function callAnthropic(
       ? json.content.find((b) => b?.type === "text" && typeof b.text === "string")?.text ?? ""
       : "";
 
+  // Anthropic frequently wraps JSON in ```json … ``` fences despite a
+  // "no markdown fences" instruction in the system prompt. Callers
+  // downstream (e.g. analyze_garment enrich) JSON.parse the raw text;
+  // a fenced response would throw and force the catch path to return
+  // `enrichment: null`, silently degrading the fallback to a no-op.
+  // Strip fences here so the wrapper-vs-primary contract stays
+  // "string of JSON that JSON.parse will accept" regardless of provider.
+  const cleaned = firstText
+    .replace(/^\s*```(?:json)?\s*\n?/i, "")
+    .replace(/\n?\s*```\s*$/i, "")
+    .trim();
+
   return {
-    data: firstText,
+    data: cleaned,
     inputTokens: json.usage?.input_tokens ?? 0,
     outputTokens: json.usage?.output_tokens ?? 0,
   };

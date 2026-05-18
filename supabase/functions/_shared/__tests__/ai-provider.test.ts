@@ -127,4 +127,68 @@ describe("callAI fallback to Anthropic", () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("strips ```json fences and converts data: image URLs to base64 source", async () => {
+    mockCallBursAI.mockRejectedValueOnce(new BursAIError("upstream down", 503));
+
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            // Anthropic frequently fences JSON despite the "no fences" hint.
+            content: [{ type: "text", text: '```json\n{"ok":true}\n```' }],
+            usage: { input_tokens: 5, output_tokens: 7 },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const supabase = {
+      from: () => ({ insert: () => Promise.resolve({}) }),
+    };
+
+    const { callAI } = await import("../ai-provider.ts");
+
+    const result = await callAI(
+      {
+        models: ["gemini-2.5-flash"],
+        functionName: "test_fn",
+        messages: [
+          { role: "system", content: "be a tester" },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "what is this?" },
+              {
+                type: "image_url",
+                image_url: {
+                  // 1×1 PNG, base64-shortened for fixture purposes.
+                  url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
+                },
+              },
+            ],
+          },
+        ],
+        fallbackEnabled: true,
+      },
+      supabase,
+    );
+
+    expect(result.provider).toBe("anthropic");
+    expect(result.data).toBe('{"ok":true}'); // fences stripped
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const sent = JSON.parse(init.body as string) as {
+      messages: Array<{ content: Array<Record<string, unknown>> }>;
+    };
+    const imageBlock = sent.messages[0].content.find(
+      (b) => b.type === "image",
+    ) as { source: { type: string; media_type: string; data: string } };
+    expect(imageBlock).toBeDefined();
+    expect(imageBlock.source.type).toBe("base64");
+    expect(imageBlock.source.media_type).toBe("image/png");
+    expect(imageBlock.source.data).toBe("iVBORw0KGgoAAAANSUhEUg==");
+  });
 });
