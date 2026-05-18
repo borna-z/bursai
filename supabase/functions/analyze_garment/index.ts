@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, BursAIError } from "../_shared/burs-ai.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
@@ -482,7 +483,13 @@ serve(async (req) => {
       });
 
       try {
-        const { data } = await callBursAI({
+        // Sprint PR 4: migrate enrich call to `callAI()` so a Gemini
+        // 429/5xx/timeout falls back to Anthropic Claude Haiku 4.5
+        // instead of returning enrichment: null. The Gemini-path
+        // behaviour (cache, dedup, quota) is unchanged — `callAI` just
+        // wraps `callBursAI` with an 8s timeout + fallback. Other call
+        // sites in this file are untouched (spec scope).
+        const { data } = await callAI({
           models: [ENRICH_MODEL],
           max_tokens: 800,
           timeout: 20000,
@@ -490,10 +497,15 @@ serve(async (req) => {
           // When cached_content is attached, the system prompt lives in
           // the cache itself; sending it again per-request causes Gemini
           // to reject/ignore the cached content. See buildEnrichMessages.
-          messages: buildEnrichMessages(resolvedImageUrl, !cacheName),
+          messages: buildEnrichMessages(resolvedImageUrl, !cacheName) as Array<{
+            role: "system" | "user" | "assistant";
+            content: any;
+          }>,
           extraBody: { temperature: 0.1 },
           responseFormat: ENRICH_SCHEMA,
           ...(cacheName ? { cachedContent: cacheName } : {}),
+          fallbackEnabled: true,
+          userId,
         }, serviceClient);
 
         // S-B.3 — Gemini structured output guarantees schema-valid JSON,
