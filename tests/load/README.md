@@ -42,8 +42,23 @@ NOT against prod casually — see "Cost estimate" below.
 SCENARIO=load k6 run tests/load/k6-edge-functions.js
 ```
 
-Stages: ramp 0 → 100 VUs over 2 min, hold 100 VUs for 8 min, spike to 500 VUs
-for 5 min. Total run: ~15 min wall time.
+Stages: ramp 0 → 100 VUs over 2 min, hold 100 VUs for 8 min, then 30 sec
+clean break, spike to 500 VUs for 5 min. Total run: ~15.5 min wall time.
+
+### `enqueue_render_job` is OFF by default
+
+The rotation skips `enqueue_render_job` unless you set
+`ENQUEUE_RENDER_JOB=true`. Each call to that endpoint reserves a credit,
+inserts a real `render_jobs` row, and kicks `process_render_jobs`
+asynchronously — a 500 VU run can spawn thousands of synthetic renders +
+drain the 100 seeded credits per user, turning later calls into 402s that
+inflate the error rate rather than measuring endpoint capacity.
+
+Opt in only against a Supabase preview branch where pollution is fine:
+
+```bash
+ENQUEUE_RENDER_JOB=true SCENARIO=load k6 run tests/load/k6-edge-functions.js
+```
 
 Pool size for `load` defaults to 200 synthetic users (~0.5 VU per user at
 100 VU hold, ~2.5 VUs per user at 500 VU spike). At that ratio every

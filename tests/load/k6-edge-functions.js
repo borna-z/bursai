@@ -43,6 +43,13 @@ import { check, sleep } from "k6";
 const SUPABASE_URL = __ENV.STAGING_URL || __ENV.SUPABASE_URL;
 const ANON_KEY = __ENV.STAGING_ANON_KEY || __ENV.ANON_KEY;
 const SERVICE_ROLE_KEY = __ENV.SERVICE_ROLE_KEY;
+// enqueue_render_job is OFF by default — each call reserves a credit, inserts
+// a real render_jobs row, and kicks process_render_jobs, so a full load run
+// can spawn thousands of synthetic renders + drain the seeded credits per
+// user. Set ENQUEUE_RENDER_JOB=true to opt in against a preview branch
+// where pollution is acceptable. Codex P2 on PR #896.
+const ENQUEUE_RENDER_JOB_ENABLED =
+  (__ENV.ENQUEUE_RENDER_JOB ?? "").toLowerCase() === "true";
 const SCENARIO = __ENV.SCENARIO || "smoke";
 const POOL_SIZE_OVERRIDE = __ENV.POOL_SIZE
   ? parseInt(__ENV.POOL_SIZE, 10)
@@ -89,7 +96,12 @@ export const options =
           },
           spike_500: {
             executor: "ramping-vus",
-            startTime: "10m",
+            // ramp_100 ends at 10m but k6's default gracefulStop is 30s — long-
+            // running AI iterations from ramp_100 can continue past 10m and get
+            // tagged scenario:ramp_100 even though the system is already under
+            // spike_500 load. Delay spike_500 past that grace window to keep
+            // per-scenario thresholds honest. Codex P2 on PR #896.
+            startTime: "10m30s",
             startVUs: 100,
             stages: [
               { duration: "1m", target: 500 },
@@ -321,6 +333,14 @@ export default function (data) {
       "analyze_garment 2xx": (res) => res.status >= 200 && res.status < 300,
     });
   } else if (choice === 1) {
+    if (!ENQUEUE_RENDER_JOB_ENABLED) {
+      // Skipped: would spawn real renders + drain seeded credits. See the
+      // ENQUEUE_RENDER_JOB env-var comment at the top of the file. The
+      // rotation still costs an iteration here so per-endpoint sample counts
+      // stay comparable to runs where enqueue is enabled (just shifted).
+      sleep(0.5);
+      return;
+    }
     const garmentId = user.garmentIds[0];
     const r = http.post(
       `${SUPABASE_URL}/functions/v1/enqueue_render_job`,
