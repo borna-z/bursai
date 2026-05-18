@@ -1051,6 +1051,15 @@ export const sv: Record<string, string> = {
   // visible suggestion text on the row before the user has any chat history.
   'home.askStylist.exampleSeed': 'Vad passar till mina linnebyxor?',
   'home.askStylist.tapHint': 'Tryck för att chatta — anpassat till dig',
+  // Rotating prompt pool. `useStylistPromptKey()` picks one of these per
+  // HomeScreen mount; tapping the row navigates with the chosen text as
+  // `initialDraft` so the composer is pre-filled. Append-only.
+  'home.askStylist.prompts.0': 'Vad ska jag ha på mig idag?',
+  'home.askStylist.prompts.1': 'Stylish mig för ett bröllop',
+  'home.askStylist.prompts.2': 'Vad passar till mina svarta jeans?',
+  'home.askStylist.prompts.3': 'Visa mig en mysig helglook',
+  'home.askStylist.prompts.4': 'Bygg en outfit för en kaffedejt',
+  'home.askStylist.prompts.5': 'Jag har möte senare — vad ska jag ha på mig?',
 
   // Home — Smart day banner fallback strings. Used when `summarize_day`
   // returns null and we still want a coherent, localized banner.

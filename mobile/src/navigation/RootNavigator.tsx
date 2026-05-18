@@ -257,6 +257,10 @@ export type RootStackParamList = {
         anchorGarmentIds?: string[];
         gapContext?: { category: string; item_name: string };
         sourceOutfitId?: string;
+        /** Pre-fill the chat composer with this text — set when arriving
+         *  from a CTA that already has a prompt in mind (e.g. the home
+         *  "Ask the stylist" rotation row). User reviews + taps send. */
+        initialDraft?: string;
       }
     | undefined;
   StyleMe: undefined;

@@ -8,7 +8,7 @@
 // HomeScreen.rhythm.tsx) and pure helpers in HomeScreen.helpers.ts. This
 // file is the orchestrator: query/state derivation + layout.
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -35,6 +35,7 @@ import type { DayEventInput } from '../lib/dayIntelligence';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
 import { t as tr } from '../lib/i18n';
+import { useStylistPromptKey } from '../lib/stylistPrompts';
 import { showToast } from '../lib/toast';
 import { localISODate } from '../lib/outfitDisplay';
 import type { RootStackParamList, TabName } from '../navigation/RootNavigator';
@@ -65,6 +66,18 @@ export function HomeScreen({
   const insets = useSafeAreaInsets();
   const nav = useNavigation<HomeNav>();
   const push = (route: keyof RootStackParamList) => () => nav.navigate(route as never);
+
+  // Home → "Ask the stylist" rotation. Picks a fresh prompt key per
+  // HomeScreen mount; the chosen text is what users see on the card AND
+  // what the chat composer is seeded with when they tap. Keeping the
+  // pick stable per mount (useMemo inside the hook) prevents the chip
+  // copy from shuffling while the user is looking at it.
+  const askStylistPromptKey = useStylistPromptKey();
+  const askStylistPromptText = tr(askStylistPromptKey);
+  const handleAskStylistPress = useCallback(
+    () => nav.navigate('StyleChat', { initialDraft: askStylistPromptText }),
+    [nav, askStylistPromptText],
+  );
 
   const { profile } = useAuth();
   const firstName = (profile?.display_name ?? '').trim().split(/\s+/)[0] ?? '';
@@ -382,7 +395,10 @@ export function HomeScreen({
         />
 
         {/* ============ ASK THE STYLIST ROW ============ */}
-        <AskStylistRow onPress={push('StyleChat')} />
+        <AskStylistRow
+          promptKey={askStylistPromptKey}
+          onPress={handleAskStylistPress}
+        />
 
         {/* ============ YOUR RHYTHM ============ */}
         <RhythmSection
