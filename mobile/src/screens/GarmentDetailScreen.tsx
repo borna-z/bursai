@@ -33,6 +33,7 @@ import { useGarment } from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
 import { useGenerateGarmentImage } from '../hooks/useGenerateGarmentImage';
+import { useRetryGarmentRender } from '../hooks/useRetryGarmentRender';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { localISODate } from '../lib/outfitDisplay';
@@ -173,15 +174,35 @@ export function GarmentDetailScreen() {
     });
   }, [garment, generateImage]);
 
+  // Manual studio-render retry — surfaces under the hero for failed,
+  // already-rendered, or never-rendered garments. Server-side pipeline is
+  // unchanged; the existing useRenderJobStatus poller picks up the new
+  // render_jobs row and invalidates the garment cache on completion.
+  const retryRender = useRetryGarmentRender();
+  const retryRenderInFlightRef = React.useRef(false);
+  const handleRetryRender = React.useCallback(() => {
+    if (retryRenderInFlightRef.current || !garment) return;
+    retryRenderInFlightRef.current = true;
+    hapticLight();
+    retryRender.mutate(garment.id, {
+      onSettled: () => {
+        retryRenderInFlightRef.current = false;
+      },
+    });
+  }, [garment, retryRender]);
+
   // M21 — paywall sticky-ref. Routes to PaywallScreen once per screen
   // lifetime when either the condition-assess or the generate-image
   // hook surfaces SUBSCRIPTION_SENTINEL. Released on focus regain or
   // when both hooks move off the sentinel. See PR #816 / PR #747.
   const generateImageError =
     generateImage.error instanceof Error ? generateImage.error.message : null;
+  const retryRenderErrorMessage =
+    retryRender.error instanceof Error ? retryRender.error.message : null;
   const paywallSentinelHit =
     assessError === SUBSCRIPTION_SENTINEL ||
-    generateImageError === SUBSCRIPTION_SENTINEL;
+    generateImageError === SUBSCRIPTION_SENTINEL ||
+    retryRenderErrorMessage === SUBSCRIPTION_SENTINEL;
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
     if (paywallSentinelHit && !paywallShownRef.current) {
@@ -342,6 +363,41 @@ export function GarmentDetailScreen() {
   const heroPath =
     garment.rendered_image_path || garment.original_image_path || garment.image_path || null;
   const showGenerateImageCta = !heroPath && !isStudioRendering;
+
+  // Manual retry button: shows under the hero in three states. Hidden
+  // while a render is in flight (existing pill takes over) or when the
+  // garment has no image at all (Generate-image CTA covers that path).
+  const retryRenderState: 'failed' | 'ready' | 'never' | null = (() => {
+    if (!heroPath || isStudioRendering) return null;
+    if (isStudioFailed) return 'failed';
+    if (hasRenderedImage) return 'ready';
+    return 'never';
+  })();
+  const retryRenderLabel = (() => {
+    switch (retryRenderState) {
+      case 'failed':
+        return tr('garmentDetail.retryRender.labelFailed');
+      case 'ready':
+        return tr('garmentDetail.retryRender.labelReady');
+      case 'never':
+        return tr('garmentDetail.retryRender.labelNever');
+      default:
+        return null;
+    }
+  })();
+  const retryRenderInlineError = (() => {
+    if (!retryRender.error) return null;
+    const message = retryRenderErrorMessage ?? '';
+    if (message === SUBSCRIPTION_SENTINEL) return null;
+    const errAny = retryRender.error as { retryAfter?: number; name?: string };
+    if (errAny?.name === 'EdgeFunctionRateLimitError' && typeof errAny.retryAfter === 'number') {
+      return tr('garmentDetail.retryRender.errorRateLimit', {
+        seconds: String(errAny.retryAfter),
+      });
+    }
+    return tr('garmentDetail.retryRender.errorGeneric');
+  })();
+
   const heroBadge: GarmentDetailHeroBadge = isStudioRendering
     ? 'rendering'
     : hasRenderedImage
@@ -394,6 +450,27 @@ export function GarmentDetailScreen() {
         }}
         showsVerticalScrollIndicator={false}>
         <GarmentDetailHero garment={garment} badge={heroBadge} />
+
+        {retryRenderLabel ? (
+          <View style={{ gap: 6 }}>
+            <Button
+              label={retryRender.isPending ? 'Working…' : retryRenderLabel}
+              disabled={retryRender.isPending}
+              onPress={handleRetryRender}
+            />
+            {retryRenderInlineError ? (
+              <Text
+                style={{
+                  fontSize: 12,
+                  lineHeight: 16,
+                  color: t.fg2,
+                  paddingHorizontal: 4,
+                }}>
+                {retryRenderInlineError}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <GarmentDetailTabs
           fields={fields}
