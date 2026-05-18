@@ -37,6 +37,11 @@ jest.mock('../../lib/edgeFunctionClient', () => {
   };
 });
 
+jest.mock('expo-crypto', () => ({
+  __esModule: true,
+  randomUUID: jest.fn(() => 'test-nonce-uuid'),
+}));
+
 jest.mock('../../lib/sentry', () => ({
   __esModule: true,
   Sentry: {
